@@ -111,7 +111,3 @@ class Board(list):
             return self[idx.y][idx.x]
         else:
             return super().__getitem__(idx)
-
-a = Board([[1,0,1], [0,1,0], [1, 0, BLANK]])
-print(a)
-assert a.is_ended()

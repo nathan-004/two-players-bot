@@ -46,7 +46,6 @@ class NeuralNetwork:
         values = np.array(inputs).reshape(-1, 1)
 
         for idx, (w, b) in enumerate(zip(self.weights, self.biases)):
-            print(values)
             res = np.dot(w, values) + b
             values = self.activation_functions[idx](res)
         

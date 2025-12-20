@@ -58,12 +58,12 @@ class Board(list):
 
         if self._get_horizontal_win(board) or self._get_vertical_win(board) or self._get_diagonal_win(board):
             return True
-
+        
         return False
 
     def _get_horizontal_win(self, board = None):
         for row in board:
-            w = all([row[x] == row[x+1] for x in range(2)])
+            w = all([row[x] == row[x+1] and not row[x] is BLANK for x in range(2)])
             if w:
                 self.winner = row[0]
                 return True
@@ -71,7 +71,7 @@ class Board(list):
 
     def _get_vertical_win(self, board=None):
         for x in range(3):
-            w = all([board[y][x] == board[y+1][x] for y in range(2)])
+            w = all([board[y][x] == board[y+1][x] and not board[y][x] is BLANK for y in range(2)])
             if w:
                 self.winner = board[0][x]
                 return True
@@ -84,6 +84,8 @@ class Board(list):
         if board[0][2] == board[1][1] == board[2][0] and not board[0][2] is BLANK:
             self.winner = board[0][0]
             return True
+        
+        return False
 
     # -------------------------------------------------------
     # Special Functions                                     |
@@ -103,6 +105,8 @@ class Board(list):
     def __setitem__(self, idx, val):
         if isinstance(idx, Position):
             self[idx.y][idx.x] = val
+        elif isinstance(idx, tuple):
+            self[idx[1]][idx[0]] = val
         else:
             super().__setitem__(idx, val)
 
@@ -111,3 +115,6 @@ class Board(list):
             return self[idx.y][idx.x]
         else:
             return super().__getitem__(idx)
+
+b = Board()
+assert not b.is_ended()

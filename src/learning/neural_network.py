@@ -1,5 +1,10 @@
 import numpy as np
 
+def softmax(x):
+    x = x - np.max(x)
+    exp_x = np.exp(x)
+    return exp_x / np.sum(exp_x)
+
 class NeuralNetwork:
     MIN_WEIGHT = -1
     MAX_WEIGHT = 1
@@ -10,7 +15,8 @@ class NeuralNetwork:
         "relu": lambda x : np.maximum(0, x),
         "sigmoid": lambda x : 1 / (1 + np.exp(-x)),
         "linear": lambda x : x,
-        "tanh": lambda x : np.tanh(x)
+        "tanh": lambda x : np.tanh(x),
+        "softmax": softmax 
     }
 
     def __init__(self, layers_dimensions:list, hidden_activation_function:str = "relu", output_activation_function:str = "linear"):
@@ -40,6 +46,7 @@ class NeuralNetwork:
         values = np.array(inputs).reshape(-1, 1)
 
         for idx, (w, b) in enumerate(zip(self.weights, self.biases)):
+            print(values)
             res = np.dot(w, values) + b
             values = self.activation_functions[idx](res)
         

@@ -23,16 +23,16 @@ def get_result(neural_network1, neural_network2):
     x = neural_network1 if i == 1 else neural_network2
 
     while not game.is_ended():
-        print(game, end="\n\n")
-
         cur = o if game.get_current_player() == O else x
         move = get_move(game, cur)
         try:
             game[move] = game.get_current_player()
         except Exception as e:
-            return {O: 1, X: -1}[game.get_current_player()]
+            return {O: x, X: o}[game.get_current_player()]
+    print(game)
+    print(game.winner, end="\n\n")
     
-    return {O: -1, X: 1, None: 0}[game.winner]
+    return {O: o, X: x, None: None}[game.winner]
 
 def create_random_nn() -> NeuralNetwork:
     nn = NeuralNetwork(
@@ -49,4 +49,13 @@ def board_1D(board, player=O):
 def main():
     nn = create_random_nn()
     nn2 = create_random_nn()
-    print(get_result(nn, nn2))
+
+    for epoch in range(100000):
+        #print(epoch)
+        score = get_result(nn, nn2)
+
+        if score is None:
+            continue
+
+        nn = score
+        nn2 = create_random_nn()

@@ -1,6 +1,7 @@
 import random
 from typing import Optional
 import sys
+import numpy as np
 
 from src.learning.neural_network import NeuralNetwork
 from src.games.tictactoe import *
@@ -17,31 +18,34 @@ def get_move(board:Board, nn:NeuralNetwork):
 
     return divmod(max_idx, 3)
 
-def get_result(neural_network1, neural_network2):
+def get_result(nn1, nn2):
     game = Board()
-    i = random.randint(0, 1)
-    o = (neural_network1, neural_network2)[i]
-    x = neural_network1 if i == 1 else neural_network2
+
+    if random.randint(0, 1) == 0:
+        players = {X: nn1, O: nn2}
+    else:
+        players = {X: nn2, O: nn1}
 
     while not game.is_ended():
-        cur = o if game.get_current_player() == O else x
-        move = get_move(game, cur)
+        current_player = game.get_current_player()
+        nn = players[current_player]
+
+        move = get_move(game, nn)
+
         try:
-            game[move] = game.get_current_player()
-        except Exception as e:
-            return {O: 1, X: -1}[game.get_current_player()]
-    
-    return {O: -1, X: 1, None: 0}[game.winner]
+            game[move] = current_player
+        except Exception:
+            return -2 if nn is nn1 else 2
+
+    if game.winner is None:
+        return 0
+
+    winner_nn = players[game.winner]
+    return 1 if winner_nn is nn1 else -1
 
 def create_random_nn() -> NeuralNetwork:
-    input_size = 10
-    output_size = 9
-
-    # hyperparamètres évolutifs
     min_layers = 1
     max_layers = 3
-    min_neurons = 16
-    max_neurons = 64
 
     n_hidden = random.randint(min_layers, max_layers)
 
@@ -57,6 +61,27 @@ def create_random_nn() -> NeuralNetwork:
     )
 
     return nn
+
+def mutate(nn: NeuralNetwork,
+           sigma=0.5) -> NeuralNetwork:
+    """
+    p_weight : proba de muter les poids
+    sigma    : amplitude du bruit
+    """
+
+    weights = [w.copy() for w in nn.weights]
+    biases = [b.copy() for b in nn.biases]
+
+    for i in range(len(weights)):
+        weights[i] += np.random.normal(0, sigma, weights[i].shape)
+        biases[i]  += np.random.normal(0, sigma, biases[i].shape)
+
+    return NeuralNetwork(
+        weights=weights,
+        biases=biases,
+        hidden_activation_function=nn.hidden_activation_function,
+        output_activation_function=nn.output_activation_function
+    )
 
 def board_1D(board, player=O):
     return [1 if cell == player else 0 if cell is BLANK else -1 for row in board for cell in row]
@@ -74,7 +99,11 @@ def main():
         #print(epoch)
         score = get_result(nn, nn2)
 
-        if score is None:
+        if score == -2 or score == 2:
+            if score == -2:
+                nn = create_random_nn()
+            else:
+                nn2 = create_random_nn()
             continue
 
         games += 1
@@ -82,11 +111,11 @@ def main():
         if score == 1:
             wins_1 += 1
             nn = nn
-            nn2 = create_random_nn()
+            nn2 = mutate(nn)
         elif score == -1:
             wins_2 += 1
             nn = nn2
-            nn2 = create_random_nn()
+            nn2 = mutate(nn)
         else:
             draws += 1
 
@@ -97,7 +126,7 @@ def main():
         bar = lambda p: "█" * int(p / 5)
 
         sys.stdout.write(
-            f"\rGAMES {games} | "
+            f"\rGAMES {games}/{epoch} | "
             f"NN1 [{bar(p1):20}] {p1:5.1f}% | "
             f"NN2 [{bar(p2):20}] {p2:5.1f}% | "
             f"Draws {pd:5.1f}%"

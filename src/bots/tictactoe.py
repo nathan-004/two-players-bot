@@ -6,19 +6,25 @@ import numpy as np
 from src.learning.neural_network import NeuralNetwork
 from src.games.tictactoe import *
 
-def get_move(board:Board, nn:NeuralNetwork):
+def get_move(board: Board, nn: NeuralNetwork):
     moves_prob = nn.prediction(board_1D(board))
 
-    max_idx, max_val = 0,0,
-    for idx, el in enumerate(moves_prob):
-        if el > max_val:
-            max_idx, max_val = idx, el
-        if el > 0.5:
-            break
+    legal_moves = board.get_legal_move()
 
-    return divmod(max_idx, 3)
+    best_move = None
+    best_score = -float("inf")
 
-def get_result(nn1, nn2):
+    for pos in legal_moves:
+        idx = pos.x * 3 + pos.y
+        score = moves_prob[idx]
+
+        if score > best_score:
+            best_score = score
+            best_move = pos
+
+    return best_move
+
+def get_result(nn1, nn2, display = False):
     game = Board()
 
     if random.randint(0, 1) == 0:
@@ -36,6 +42,9 @@ def get_result(nn1, nn2):
             game[move] = current_player
         except Exception:
             return -2 if nn is nn1 else 2
+        
+        if display:
+            print(game, end="\n\n")
 
     if game.winner is None:
         return 0
@@ -95,7 +104,7 @@ def main():
     draws = 0
     games = 0
 
-    for epoch in range(500000):
+    for epoch in range(10000):
         #print(epoch)
         score = get_result(nn, nn2)
 
@@ -132,3 +141,5 @@ def main():
             f"Draws {pd:5.1f}%"
         )
         sys.stdout.flush()
+    
+    get_result(nn, nn2, True)

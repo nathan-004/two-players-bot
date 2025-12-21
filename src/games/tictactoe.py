@@ -60,6 +60,18 @@ class Board(list):
             return True
         
         return False
+    
+    def get_legal_move(self, board = None) -> list[Position]:
+        if board is None:
+            board = self
+        
+        res = []
+        for y, row in enumerate(board):
+            for x, val in enumerate(row):
+                if val is BLANK:
+                    res.append(Position(x, y))
+        
+        return res
 
     def _get_horizontal_win(self, board = None):
         for row in board:

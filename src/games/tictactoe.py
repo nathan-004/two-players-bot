@@ -53,10 +53,10 @@ class Board(list):
         if board is None:
             board = self
 
-        if not any([any([val is BLANK for val in row]) for row in self]):
-            return True
-
         if self._get_horizontal_win(board) or self._get_vertical_win(board) or self._get_diagonal_win(board):
+            return True
+        
+        if not any([any([val is BLANK for val in row]) for row in self]):
             return True
         
         return False

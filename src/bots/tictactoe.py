@@ -72,7 +72,7 @@ def create_random_nn() -> NeuralNetwork:
     return nn
 
 def mutate(nn: NeuralNetwork,
-           sigma=0.5) -> NeuralNetwork:
+           sigma=0.1) -> NeuralNetwork:
     """
     p_weight : proba de muter les poids
     sigma    : amplitude du bruit
@@ -94,6 +94,48 @@ def mutate(nn: NeuralNetwork,
 
 def board_1D(board, player=O):
     return [1 if cell == player else 0 if cell is BLANK else -1 for row in board for cell in row]
+
+def play(nn: NeuralNetwork):
+    game = Board()
+
+    print("=== Morpion : Humain vs IA ===")
+    print("Tu joues X, l'IA joue O\n")
+
+    while not game.is_ended():
+        print(game)
+
+        if game.get_current_player() == X:
+            while True:
+                try:
+                    raw = input("Entre ton coup (ligne col) [0-2 0-2] : ")
+                    r, c = map(int, raw.split())
+                    pos = Position(r, c)
+
+                    if pos not in game.get_legal_move():
+                        print("Coup illégal, réessaie.")
+                        continue
+
+                    game[pos] = X
+                    break
+
+                except Exception:
+                    print("Entrée invalide.")
+
+        else:
+            # --- coup IA ---
+            pos = get_move(game, nn)
+            game[pos] = O
+            print(f"IA joue : {pos.x} {pos.y}")
+
+    print(game)
+
+    if game.winner == X:
+        print("Tu as gagné !")
+    elif game.winner == O:
+        print("L'IA a gagné.")
+    else:
+        print("Match nul.")
+
 
 def main():
     nn = create_random_nn()
@@ -138,8 +180,10 @@ def main():
             f"\rGAMES {games}/{epoch} | "
             f"NN1 [{bar(p1):20}] {p1:5.1f}% | "
             f"NN2 [{bar(p2):20}] {p2:5.1f}% | "
-            f"Draws {pd:5.1f}%"
+            f"Draws [{bar(pd):20}] {pd:5.1f}%"
         )
         sys.stdout.flush()
     
     get_result(nn, nn2, True)
+    play(nn)
+    play(nn2)

@@ -10,6 +10,11 @@ from src.games.tictactoe import *
 def board_1D(board, player=O):
     return [1 if cell == player else 0 if cell is BLANK else -1 for row in board for cell in row]
 
+def elo_update(r1, r2, s1, K=40):
+    e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
+    delta = K * (s1 - e1)
+    return delta, -delta
+
 class Evolution:
     def __init__(self, n:int):
         """
@@ -20,6 +25,7 @@ class Evolution:
         """
         self.n = n
         self.nns = [self._create_random_nn() for _ in range(n)]
+        self.ratings = defaultdict(lambda : 1000)
 
     def train(self, epoch:int):
         """
@@ -28,22 +34,28 @@ class Evolution:
         :param epoch: Nombre d'itérations
         :type epoch: int
         """
-        k = int(1/3 * self.n)
+        k = int(0.4 * self.n)
 
         for e in range(epoch):
             scores = self.tournament()
             self.nns.sort(key= lambda x: scores[x], reverse=True)
 
-            for idx in range(k, int(self.n * 2/3)):
-                self.nns[idx] = self._mutate(self.nns[idx % k])
+            for idx in range(k, int(self.n * 0.6)):
+                self.nns[idx] = self._mutate(self.nns[idx % k], sigma=0.001)
 
-            for idx in range(int(self.n * 2/3), self.n):
+            for idx in range(int(self.n * 0.6), int(self.n * 0.8)):
+                self.nns[idx] = self._mutate(self.nns[idx % k], sigma=0.005)
+
+            for idx in range(int(self.n * 0.8), self.n):
                 self.nns[idx] = self._create_random_nn()
 
             sys.stdout.write(
                 f"\rEpoch : {e}/{epoch} "
-                f"Best score : {scores[self.nns[0]]}"
+                f"Best elo : {scores[self.nns[0]]} "
+                f"Worst elo : {scores[self.nns[-1]]}"
             )
+
+            sys.stdout.flush()
 
     def tournament(self, n_matches:int = 10) -> list:
         """
@@ -54,7 +66,7 @@ class Evolution:
         :return: Liste des réseau triés du plus performant au pire
         :rtype: list
         """
-        scores = defaultdict(int)
+        scores = self.ratings
 
         for m in self.nns:
             opponents = random.sample(self.nns, n_matches)
@@ -66,48 +78,46 @@ class Evolution:
                 else:
                     s = self.get_game_score(m, o)
 
-                scores[m] += s * (5 if s < 0 else 1)
-                scores[o] -= s * (5 if s > 0 else 1)
+                delta_m, delta_o = elo_update(
+                    scores[m], scores[o], s
+                )
+                scores[m] += delta_m
+                scores[o] += delta_o
         
+        self.ratings = scores
         return scores
 
     def duel(self, nn1, nn2):
         s1 = self.get_game_score(nn1, nn2)
-        s2 = self.get_game_score(nn2, nn1)
-        return s1 - s2
+        s2 = 1 - self.get_game_score(nn2, nn1)
+        return (s1 + s2) / 2
 
     def get_game_score(self, nn1, nn2, display = False, early_stop = False):
         game = Board()
-
         players = {X: nn1, O: nn2}
+        
         coups = 0
 
         while not game.is_ended():
-            if early_stop:
-                if coups >= 5 and game.winner is None:
-                    return 0
-            
+            if coups >= 5 and early_stop:
+                return 0.5
             current_player = game.get_current_player()
-            nn = players[current_player]
+            if coups > 1:
+                nn = players[current_player]
+                move = self._get_move(game, nn)
+            else:
+                move = random.choice(game.get_legal_move())
+            game[move] = current_player
 
-            move = self._get_move(game, nn)
-
-            try:
-                game[move] = current_player
-            except Exception:
-                return -0.1 if nn is nn1 else 0.1
-            
-            coups += 1
-            
             if display:
                 print(game, end="\n\n")
 
         if game.winner is None:
-            return 0.2
-
-        winner_nn = players[game.winner]
-        get_score = lambda x: x - coups/10
-        return get_score(1 if winner_nn is nn1 else -1)
+            return 1
+        elif players[game.winner] is nn1:
+            return max(0.1, 1.0 - coups * 0.1)
+        else:
+            return 0
     
     def _create_random_nn(self) -> NeuralNetwork:
         min_layers = 1
@@ -123,13 +133,14 @@ class Evolution:
         nn = NeuralNetwork(
             layers_dimensions=[9] + hidden_sizes + [9],
             hidden_activation_function="relu",
-            output_activation_function="linear"
+            output_activation_function="softmax"
         )
 
         return nn
 
     def _get_move(self, board: Board, nn: NeuralNetwork):
-        moves_prob = nn.prediction(board_1D(board))
+        p = board.get_current_player()
+        moves_prob = nn.prediction(board_1D(board, p))
 
         legal_moves = board.get_legal_move()
 
@@ -147,7 +158,7 @@ class Evolution:
         return best_move
     
     def _mutate(self, nn: NeuralNetwork,
-            sigma=0.02) -> NeuralNetwork:
+            sigma=0.003) -> NeuralNetwork:
         """
         p_weight : proba de muter les poids
         sigma    : amplitude du bruit
@@ -169,5 +180,13 @@ class Evolution:
 
 def main(): 
     evol = Evolution(75)
-    evol.train(200)
-    evol.get_game_score(evol.nns[0], evol.nns[1], True, False)
+    evol.train(500)
+    evol.get_game_score(evol.nns[0], evol.nns[0], True, False)
+
+    w = 0
+    for _ in range(1000):
+        random_nn = evol._create_random_nn()
+        w += evol.get_game_score(evol.nns[0], random_nn)
+    print("Win rate vs random :", w / 1000)
+
+    print(evol.duel(evol.nns[0], evol.nns[1]))

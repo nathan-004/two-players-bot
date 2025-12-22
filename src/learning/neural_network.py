@@ -7,10 +7,10 @@ def softmax(x):
     return exp_x / np.sum(exp_x)
 
 class NeuralNetwork:
-    MIN_WEIGHT = -10
-    MAX_WEIGHT = 10
-    MIN_BIAS = -10
-    MAX_BIAS = 10
+    MIN_WEIGHT = -1.0
+    MAX_WEIGHT = 1.0
+    MIN_BIAS   = -0.5
+    MAX_BIAS   = 0.5
 
     ACTIVATION_FUNCTIONS = {
         "relu": lambda x : np.maximum(0, x),

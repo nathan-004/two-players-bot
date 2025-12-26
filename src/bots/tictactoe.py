@@ -11,7 +11,7 @@ def board_1D(board, player=O):
     return [1 if cell == player else 0 if cell is BLANK else -1 for row in board for cell in row]
 
 def elo_update(r1, r2, s1, K=20):
-    e1 = 1 / (1 + 10 ** ((r2 - r1) / 2000))
+    e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
     delta = K * (s1 - e1)
     return delta, -delta
 
@@ -107,10 +107,16 @@ class Evolution:
             current_player = game.get_current_player()
             if coups > 1:
                 nn = players[current_player]
-                move = self._get_move(game, nn)
+                move = self._get_move(game, nn, allow_illegal_moves=True)
             else:
                 move = random.choice(game.get_legal_move())
-            game[move] = current_player
+            
+            try:
+                game[move] = current_player
+            except Exception as e:
+                print(e)
+                game.winner = 0 if current_player == 1 else 1
+                break
 
             if display:
                 print(game, end="\n\n")
@@ -129,7 +135,7 @@ class Evolution:
         n_hidden = random.randint(min_layers, max_layers)
 
         hidden_sizes = [
-            random.choice([16, 24, 32, 48, 64])
+            random.choice([4, 8, 16, 24, 32, 48, 64])
             for _ in range(n_hidden)
         ]
 
@@ -141,9 +147,15 @@ class Evolution:
 
         return nn
 
-    def _get_move(self, board: Board, nn: NeuralNetwork):
+    def _get_move(self, board: Board, nn: NeuralNetwork, allow_illegal_moves = False):
         p = board.get_current_player()
         moves_prob = nn.prediction(board_1D(board, p))
+
+        if allow_illegal_moves:
+            max_ = max(moves_prob)
+            idx = moves_prob.index(max_)
+            x, y = divmod(idx, 3)
+            return Position(x, y)
 
         legal_moves = board.get_legal_move()
 

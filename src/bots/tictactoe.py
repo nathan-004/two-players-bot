@@ -10,8 +10,8 @@ from src.games.tictactoe import *
 def board_1D(board, player=O):
     return [1 if cell == player else 0 if cell is BLANK else -1 for row in board for cell in row]
 
-def elo_update(r1, r2, s1, K=40):
-    e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
+def elo_update(r1, r2, s1, K=20):
+    e1 = 1 / (1 + 10 ** ((r2 - r1) / 2000))
     delta = K * (s1 - e1)
     return delta, -delta
 
@@ -34,17 +34,17 @@ class Evolution:
         :param epoch: Nombre d'itérations
         :type epoch: int
         """
-        k = int(0.4 * self.n)
+        k = int(0.3 * self.n)
 
         for e in range(epoch):
             scores = self.tournament()
             self.nns.sort(key= lambda x: scores[x], reverse=True)
 
-            for idx in range(k, int(self.n * 0.6)):
-                self.nns[idx] = self._mutate(self.nns[idx % k], sigma=0.001)
+            for idx in range(k, int(self.n * 0.5)):
+                self.nns[idx] = self._mutate(self.nns[idx % k], sigma=0.0001)
 
-            for idx in range(int(self.n * 0.6), int(self.n * 0.8)):
-                self.nns[idx] = self._mutate(self.nns[idx % k], sigma=0.005)
+            for idx in range(int(self.n * 0.5), int(self.n * 0.8)):
+                self.nns[idx] = self._mutate(self.nns[idx % k], sigma=0.05)
 
             for idx in range(int(self.n * 0.8), self.n):
                 self.nns[idx] = self._create_random_nn()
@@ -57,7 +57,7 @@ class Evolution:
 
             sys.stdout.flush()
 
-    def tournament(self, n_matches:int = 10) -> list:
+    def tournament(self, n_matches:int = 1) -> list:
         """
         Renvoie les modèles du meilleur au pire par leurs performance dans un tournoi
         
@@ -66,10 +66,13 @@ class Evolution:
         :return: Liste des réseau triés du plus performant au pire
         :rtype: list
         """
+        if n_matches is None:
+            n_matches = self.n
+
         scores = self.ratings
 
         for m in self.nns:
-            opponents = random.sample(self.nns, n_matches)
+            opponents = self._get_opponents(m, n_matches)
             for o in opponents:
                 if m is o:
                     continue
@@ -115,7 +118,7 @@ class Evolution:
         if game.winner is None:
             return 1
         elif players[game.winner] is nn1:
-            return max(0.1, 1.0 - coups * 0.1)
+            return max(0.5, 1.0 - coups * 0.1)
         else:
             return 0
     
@@ -177,16 +180,47 @@ class Evolution:
             hidden_activation_function=nn.hidden_activation_function,
             output_activation_function=nn.output_activation_function
         )
+    
+    def _get_opponents(self, nn, n_opponents) -> list:
+        """
+        Renvoie la liste des meilleurs adversaires en fonction de l'elo de nn
+        
+        :param nn: Réseau neuronal de base
+        :param n_opponents: Nombre d'adversaires
+        :return: Liste de NeuralNetwork
+        :rtype: list
+        """
+        elo_nn = self.ratings[nn]
+
+        sorted_nns = sorted(
+            (other for other in self.nns if other is not nn),
+            key=lambda other: abs(self.ratings[other] - elo_nn)
+        )
+
+        return sorted_nns[:n_opponents]
 
 def main(): 
     evol = Evolution(75)
-    evol.train(500)
+    
+    for i in range(10):
+        evol.train(400)
+
+        w = 0
+        for _ in range(1000):
+            random_nn = evol._create_random_nn()
+            w += evol.get_game_score(evol._create_random_nn(), random_nn)
+        print(" Random vs random :", w / 1000, end=" ")
+
+        w = 0
+        for _ in range(1000):
+            random_nn = evol._create_random_nn()
+            w += evol.get_game_score(random_nn, evol.nns[0])
+        print("Winrate vs random (O side) :", w / 1000, end=" ")
+
+        w = 0
+        for _ in range(1000):
+            random_nn = evol._create_random_nn()
+            w += evol.get_game_score(evol.nns[0], random_nn)
+        print("Winrate vs random (X side) :", w / 1000)
+    print(evol.ratings[evol.nns[0]])
     evol.get_game_score(evol.nns[0], evol.nns[0], True, False)
-
-    w = 0
-    for _ in range(1000):
-        random_nn = evol._create_random_nn()
-        w += evol.get_game_score(evol.nns[0], random_nn)
-    print("Win rate vs random :", w / 1000)
-
-    print(evol.duel(evol.nns[0], evol.nns[1]))

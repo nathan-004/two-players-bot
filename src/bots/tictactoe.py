@@ -15,7 +15,117 @@ def elo_update(r1, r2, s1, K=20):
     delta = K * (s1 - e1)
     return delta, -delta
 
-class Evolution:
+class TicTacToeEvolution:
+    def duel(self, nn1, nn2):
+        s1 = self.get_game_score(nn1, nn2)
+        s2 = 1 - self.get_game_score(nn2, nn1)
+        return (s1 + s2) / 2
+
+    def get_game_score(self, nn1, nn2, display = False, early_stop = False):
+        game = Board()
+        players = {X: nn1, O: nn2}
+        
+        coups = 0
+
+        while not game.is_ended():
+            if coups >= 5 and early_stop:
+                return 0.5
+            current_player = game.get_current_player()
+            if coups > 1:
+                nn = players[current_player]
+                move = self._get_move(game, nn, allow_illegal_moves=False)
+            else:
+                move = random.choice(game.get_legal_move())
+            
+            try:
+                game[move] = current_player
+            except Exception as e:
+                #print(e)
+                game.winner = 0 if current_player == 1 else 1
+                break
+
+            if display:
+                print(game, end="\n\n")
+
+            coups += 1
+
+        if game.winner is None:
+            return 1
+        elif players[game.winner] is nn1:
+            return max(0.75, 1.0 - coups * 0.1)
+        else:
+            return 0
+    
+    def _create_random_nn(self, hidden_sizes:list = None) -> NeuralNetwork:
+        if hidden_sizes is None:
+            min_layers = 1
+            max_layers = 3
+
+            n_hidden = random.randint(min_layers, max_layers)
+
+            hidden_sizes = [
+                random.choice([4, 8, 16, 24, 32, 48, 64])
+                for _ in range(n_hidden)
+            ]
+
+        nn = NeuralNetwork(
+            layers_dimensions=[9] + hidden_sizes + [9],
+            hidden_activation_function="relu",
+            output_activation_function="softmax"
+        )
+
+        return nn
+
+    def _get_move(self, board: Board, nn: NeuralNetwork, allow_illegal_moves = False):
+        p = board.get_current_player()
+        moves_prob = nn.prediction(board_1D(board, p))
+
+        if allow_illegal_moves:
+            max_ = max(moves_prob)
+            idx = moves_prob.index(max_)
+            x, y = divmod(idx, 3)
+            return Position(x, y)
+
+        legal_moves = board.get_legal_move()
+
+        best_move = None
+        best_score = -float("inf")
+
+        for pos in legal_moves:
+            idx = pos.x * 3 + pos.y
+            score = moves_prob[idx]
+
+            if score > best_score:
+                best_score = score
+                best_move = pos
+
+        return best_move
+
+    def _mutate(self, nn: NeuralNetwork,
+        sigma=0.003) -> NeuralNetwork:
+        """
+        p_weight : proba de muter les poids
+        sigma    : amplitude du bruit
+        """
+
+        weights = [w.copy() for w in nn.weights]
+        biases = [b.copy() for b in nn.biases]
+
+        for i in range(len(weights)):
+            weights[i] += np.random.normal(0, sigma, weights[i].shape)
+            biases[i]  += np.random.normal(0, sigma, biases[i].shape)
+
+        return NeuralNetwork(
+            weights=weights,
+            biases=biases,
+            hidden_activation_function=nn.hidden_activation_function,
+            output_activation_function=nn.output_activation_function
+        )
+    
+    def _get_index_from_move(self, pos:Position):
+        return pos.x * 3 + pos.y
+
+class TournamentEvolution(TicTacToeEvolution):
     def __init__(self, n:int):
         """
         Classe Evolution permettant de sélectionner les meilleurs réseaux parmi n réseaux
@@ -89,109 +199,6 @@ class Evolution:
         
         self.ratings = scores
         return scores
-
-    def duel(self, nn1, nn2):
-        s1 = self.get_game_score(nn1, nn2)
-        s2 = 1 - self.get_game_score(nn2, nn1)
-        return (s1 + s2) / 2
-
-    def get_game_score(self, nn1, nn2, display = False, early_stop = False):
-        game = Board()
-        players = {X: nn1, O: nn2}
-        
-        coups = 0
-
-        while not game.is_ended():
-            if coups >= 5 and early_stop:
-                return 0.5
-            current_player = game.get_current_player()
-            if coups > 1:
-                nn = players[current_player]
-                move = self._get_move(game, nn, allow_illegal_moves=True)
-            else:
-                move = random.choice(game.get_legal_move())
-            
-            try:
-                game[move] = current_player
-            except Exception as e:
-                print(e)
-                game.winner = 0 if current_player == 1 else 1
-                break
-
-            if display:
-                print(game, end="\n\n")
-
-        if game.winner is None:
-            return 1
-        elif players[game.winner] is nn1:
-            return max(0.5, 1.0 - coups * 0.1)
-        else:
-            return 0
-    
-    def _create_random_nn(self) -> NeuralNetwork:
-        min_layers = 1
-        max_layers = 3
-
-        n_hidden = random.randint(min_layers, max_layers)
-
-        hidden_sizes = [
-            random.choice([4, 8, 16, 24, 32, 48, 64])
-            for _ in range(n_hidden)
-        ]
-
-        nn = NeuralNetwork(
-            layers_dimensions=[9] + hidden_sizes + [9],
-            hidden_activation_function="relu",
-            output_activation_function="softmax"
-        )
-
-        return nn
-
-    def _get_move(self, board: Board, nn: NeuralNetwork, allow_illegal_moves = False):
-        p = board.get_current_player()
-        moves_prob = nn.prediction(board_1D(board, p))
-
-        if allow_illegal_moves:
-            max_ = max(moves_prob)
-            idx = moves_prob.index(max_)
-            x, y = divmod(idx, 3)
-            return Position(x, y)
-
-        legal_moves = board.get_legal_move()
-
-        best_move = None
-        best_score = -float("inf")
-
-        for pos in legal_moves:
-            idx = pos.x * 3 + pos.y
-            score = moves_prob[idx]
-
-            if score > best_score:
-                best_score = score
-                best_move = pos
-
-        return best_move
-    
-    def _mutate(self, nn: NeuralNetwork,
-            sigma=0.003) -> NeuralNetwork:
-        """
-        p_weight : proba de muter les poids
-        sigma    : amplitude du bruit
-        """
-
-        weights = [w.copy() for w in nn.weights]
-        biases = [b.copy() for b in nn.biases]
-
-        for i in range(len(weights)):
-            weights[i] += np.random.normal(0, sigma, weights[i].shape)
-            biases[i]  += np.random.normal(0, sigma, biases[i].shape)
-
-        return NeuralNetwork(
-            weights=weights,
-            biases=biases,
-            hidden_activation_function=nn.hidden_activation_function,
-            output_activation_function=nn.output_activation_function
-        )
     
     def _get_opponents(self, nn, n_opponents) -> list:
         """
@@ -211,11 +218,11 @@ class Evolution:
 
         return sorted_nns[:n_opponents]
 
-def main(): 
-    evol = Evolution(75)
+def tournament_main(): 
+    evol = TournamentEvolution(75)
     
     for i in range(10):
-        evol.train(400)
+        evol.train(500)
 
         w = 0
         for _ in range(1000):
@@ -236,3 +243,31 @@ def main():
         print("Winrate vs random (X side) :", w / 1000)
     print(evol.ratings[evol.nns[0]])
     evol.get_game_score(evol.nns[0], evol.nns[0], True, False)
+
+class SelfEvolution(TicTacToeEvolution):
+    """
+    S'améliore en jouant répétivement contre lui même
+    """
+
+    def __init__(self, hidden_sizes = [16, 32, 16]):
+        self.nn = self._create_random_nn(hidden_sizes)
+
+    def train(self, epochs:int):
+        
+        for e in range(epochs):
+            pass
+    
+    def _targeted_mutation(self, last_move:Position, sigma = 0.01):
+        """
+        Modifie les poids et les biais en fonction de la part d'activation de chaque neurone vers le coups perdant
+        
+        :param last_move: Dernier coups joué avant une défaite
+        :type last_move: Position
+        :param sigma: Defini intervalle d'aléatoire de la mutation
+        """
+        res = self._get_index_from_move(last_move)
+
+        pass
+
+def main():
+    tournament_main()

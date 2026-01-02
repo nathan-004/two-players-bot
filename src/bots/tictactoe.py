@@ -15,6 +15,33 @@ def elo_update(r1, r2, s1, K=20):
     delta = K * (s1 - e1)
     return delta, -delta
 
+class PlayerPlay:
+    def _get_move(self, board:Board):
+        move = False
+
+        while not move:
+            move = input("Coups sous format 'x y' : ")
+            move = self._is_legal_move(move, board)
+        return move
+    
+    def _is_legal_move(self, inp:str, board:Board) -> bool:
+        if not " " in inp:
+            return False
+        
+        els = inp.split(" ")
+
+        if len(els) != 2:
+            return False
+        
+        if not(all([el.isdigit() for el in els])):
+            return False
+        
+        move = Position(int(els[0]), int(els[1]))
+
+        if move in board.get_legal_move():
+            return move 
+        return False
+
 class PerfectBot:
     def _get_move(self, board:Board):
         """Return the best `Position` for the current player using minimax."""
@@ -70,7 +97,7 @@ class TicTacToeEvolution:
             if coups >= 5 and early_stop:
                 return 0.5
             current_player = game.get_current_player()
-            if coups > 1:
+            if coups >= 1:
                 nn = players[current_player]
                 move = self._get_move(game, nn, allow_illegal_moves=False)
             else:
@@ -89,9 +116,9 @@ class TicTacToeEvolution:
             coups += 1
 
         if game.winner is None:
-            return 1
+            return 0.5
         elif players[game.winner] is nn1:
-            return max(0.75, 1.0 - coups * 0.1)
+            return 1.0
         else:
             return 0
     
@@ -116,7 +143,7 @@ class TicTacToeEvolution:
         return nn
 
     def _get_move(self, board: Board, nn: NeuralNetwork, allow_illegal_moves = False):
-        if type(nn) is PerfectBot:
+        if not type(nn) is NeuralNetwork:
             return nn._get_move(board)
 
         p = board.get_current_player()
@@ -224,7 +251,7 @@ class TournamentEvolution(TicTacToeEvolution):
         scores = self.ratings
 
         for m in self.nns:
-            opponents = self._get_opponents(m, n_matches)
+            opponents = self._get_opponents(m, n_matches)  #random.sample(self.nns, n_matches)
             for o in opponents:
                 if m is o:
                     continue
@@ -267,9 +294,9 @@ def tournament_main():
         evol.train(500)
 
         w = 0
-        for _ in range(1000):
+        for _ in range(10):
             w += evol.get_game_score(evol.nns[0], PerfectBot())
-        print(" Winrate vs perfect (X side) :", w / 1000)
+        print(" Winrate vs perfect (X side) :", w / 10)
     print(evol.ratings[evol.nns[0]])
     evol.get_game_score(evol.nns[0], evol.nns[0], True, False)
 

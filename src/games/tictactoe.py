@@ -94,7 +94,7 @@ class Board(list):
             self.winner = board[0][0]
             return True
         if board[0][2] == board[1][1] == board[2][0] and not board[0][2] is BLANK:
-            self.winner = board[0][0]
+            self.winner = board[0][2]
             return True
         
         return False

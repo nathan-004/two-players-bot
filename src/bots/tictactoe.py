@@ -15,6 +15,45 @@ def elo_update(r1, r2, s1, K=20):
     delta = K * (s1 - e1)
     return delta, -delta
 
+class PerfectBot:
+    def _get_move(self, board:Board):
+        """Return the best `Position` for the current player using minimax."""
+        score, move = self._get_best_move(board)
+        return move
+
+    def _get_best_move(self, board:Board):
+        """Minimax algorithm returning a tuple (score, best_move).
+
+        Score is from X's perspective: X win -> 1, O win -> -1, draw -> 0.
+        """
+        if board.is_ended():
+            return ({X: 1, O: -1, BLANK: 0}[board.winner], None)
+
+        current_player = board.get_current_player()
+
+        if current_player == X:
+            best_score = -float("inf")
+        else:
+            best_score = float("inf")
+
+        best_move = None
+
+        for move in board.get_legal_move():
+            new_board = Board(board)
+            new_board[move] = current_player
+            score, _ = self._get_best_move(new_board)
+
+            if current_player == X:
+                if score > best_score:
+                    best_score = score
+                    best_move = move
+            else:
+                if score < best_score:
+                    best_score = score
+                    best_move = move
+
+        return best_score, best_move
+
 class TicTacToeEvolution:
     def duel(self, nn1, nn2):
         s1 = self.get_game_score(nn1, nn2)
@@ -70,13 +109,16 @@ class TicTacToeEvolution:
 
         nn = NeuralNetwork(
             layers_dimensions=[9] + hidden_sizes + [9],
-            hidden_activation_function="relu",
+            hidden_activation_function="linear",
             output_activation_function="softmax"
         )
 
         return nn
 
     def _get_move(self, board: Board, nn: NeuralNetwork, allow_illegal_moves = False):
+        if type(nn) is PerfectBot:
+            return nn._get_move(board)
+
         p = board.get_current_player()
         moves_prob = nn.prediction(board_1D(board, p))
 
@@ -226,21 +268,8 @@ def tournament_main():
 
         w = 0
         for _ in range(1000):
-            random_nn = evol._create_random_nn()
-            w += evol.get_game_score(evol._create_random_nn(), random_nn)
-        print(" Random vs random :", w / 1000, end=" ")
-
-        w = 0
-        for _ in range(1000):
-            random_nn = evol._create_random_nn()
-            w += evol.get_game_score(random_nn, evol.nns[0])
-        print("Winrate vs random (O side) :", w / 1000, end=" ")
-
-        w = 0
-        for _ in range(1000):
-            random_nn = evol._create_random_nn()
-            w += evol.get_game_score(evol.nns[0], random_nn)
-        print("Winrate vs random (X side) :", w / 1000)
+            w += evol.get_game_score(evol.nns[0], PerfectBot())
+        print(" Winrate vs perfect (X side) :", w / 1000)
     print(evol.ratings[evol.nns[0]])
     evol.get_game_score(evol.nns[0], evol.nns[0], True, False)
 
@@ -257,7 +286,7 @@ class SelfEvolution(TicTacToeEvolution):
         for e in range(epochs):
             pass
     
-    def _targeted_mutation(self, last_move:Position, sigma = 0.01):
+    def _targeted_mutation(self, nn:NeuralNetwork, last_move:Position, sigma = 0.01):
         """
         Modifie les poids et les biais en fonction de la part d'activation de chaque neurone vers le coups perdant
         
@@ -267,7 +296,11 @@ class SelfEvolution(TicTacToeEvolution):
         """
         res = self._get_index_from_move(last_move)
 
-        pass
+        weights = [w.copy() for w in nn.weights]
+        biases = [b.copy() for b in nn.biases]
+
+        for idx in range(len(weights)):
+            pass
 
 def main():
     tournament_main()

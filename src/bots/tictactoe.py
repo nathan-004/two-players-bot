@@ -193,6 +193,33 @@ class TicTacToeEvolution:
     
     def _get_index_from_move(self, pos:Position):
         return pos.x * 3 + pos.y
+    
+    def _targeted_mutation(self, nn:NeuralNetwork, board:Board, player:int, last_move:Position, sigma = 0.01):
+        """
+        Modifie les poids et les biais en fonction de la part d'activation de chaque neurone vers le coups perdant
+        
+        :param last_move: Dernier coups joué avant une défaite
+        :type last_move: Position
+        :param sigma: Defini intervalle d'aléatoire de la mutation
+        """
+        res = self._get_index_from_move(last_move)
+
+        weights = [w.copy() for w in nn.weights]
+        biases = [b.copy() for b in nn.biases]
+
+        activations = [np.array(board_1D(board, player))]
+
+        # Stocker les activations
+        for idx, vals in enumerate(zip(weights, biases)):
+            w, b = vals
+            z = np.dot(activations[-1], w) + b
+            activations.append(nn.activation_functions[idx])
+
+        # Calcul des responsabilités
+        responsibilities = [np.zeros_like(a) for a in activations]
+        responsibilities[-1][res] = 1.0
+
+        # Retro Propagation des responsabilités
 
 class TournamentEvolution(TicTacToeEvolution):
     def __init__(self, n:int):
@@ -251,7 +278,7 @@ class TournamentEvolution(TicTacToeEvolution):
         scores = self.ratings
 
         for m in self.nns:
-            opponents = self._get_opponents(m, n_matches)  #random.sample(self.nns, n_matches)
+            opponents = random.sample(self.nns, n_matches) # self._get_opponents(m, n_matches) 
             for o in opponents:
                 if m is o:
                     continue
@@ -311,22 +338,6 @@ class SelfEvolution(TicTacToeEvolution):
     def train(self, epochs:int):
         
         for e in range(epochs):
-            pass
-    
-    def _targeted_mutation(self, nn:NeuralNetwork, last_move:Position, sigma = 0.01):
-        """
-        Modifie les poids et les biais en fonction de la part d'activation de chaque neurone vers le coups perdant
-        
-        :param last_move: Dernier coups joué avant une défaite
-        :type last_move: Position
-        :param sigma: Defini intervalle d'aléatoire de la mutation
-        """
-        res = self._get_index_from_move(last_move)
-
-        weights = [w.copy() for w in nn.weights]
-        biases = [b.copy() for b in nn.biases]
-
-        for idx in range(len(weights)):
             pass
 
 def main():

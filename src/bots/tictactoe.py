@@ -197,7 +197,7 @@ class TicTacToeEvolution:
     def _targeted_mutation(self, nn:NeuralNetwork, board:Board, player:int, last_move:Position, sigma = 0.01):
         """
         Modifie les poids et les biais en fonction de la part d'activation de chaque neurone vers le coups perdant
-        
+
         :param last_move: Dernier coups joué avant une défaite
         :type last_move: Position
         :param sigma: Defini intervalle d'aléatoire de la mutation
@@ -207,19 +207,49 @@ class TicTacToeEvolution:
         weights = [w.copy() for w in nn.weights]
         biases = [b.copy() for b in nn.biases]
 
-        activations = [np.array(board_1D(board, player))]
+        # activations stored as 1D arrays (matching np.dot(w, a) semantics)
+        activations = [np.array(board_1D(board, player), dtype=float)]
 
-        # Stocker les activations
-        for idx, vals in enumerate(zip(weights, biases)):
-            w, b = vals
-            z = np.dot(activations[-1], w) + b
-            activations.append(nn.activation_functions[idx])
+        # Stocker les activations (forward pass)
+        for idx, (w, b) in enumerate(zip(weights, biases)):
+            # w: (neurons, prev), b: (neurons, 1)
+            z = np.dot(w, activations[-1]) + b.flatten()
+            a = nn.activation_functions[idx](z)
+            activations.append(a)
 
-        # Calcul des responsabilités
+        # Calcul des responsabilités (1D arrays)
         responsibilities = [np.zeros_like(a) for a in activations]
         responsibilities[-1][res] = 1.0
 
         # Retro Propagation des responsabilités
+        for l in reversed(range(len(weights))):
+            w = weights[l]
+            r_next = responsibilities[l + 1]
+
+            # w.T: (prev, next), r_next: (next,)
+            contrib = np.abs(w.T * r_next).sum(axis=1)
+            responsibilities[l] = contrib / (contrib.sum() + 1e-8)
+
+        new_weights = []
+        new_biases = []
+
+        for l, (w, b) in enumerate(zip(weights, biases)):
+            r_out = responsibilities[l + 1][:, None]  # (next,1)
+            r_in = responsibilities[l][None, :]       # (1, prev)
+            factor = r_out * r_in                     # (next, prev)
+
+            noise_w = np.random.normal(0, sigma, w.shape) * factor
+            noise_b = np.random.normal(0, sigma, b.shape) * r_out
+
+            new_weights.append(w + noise_w)
+            new_biases.append(b + noise_b)
+
+        return NeuralNetwork(
+            weights=new_weights,
+            biases=new_biases,
+            hidden_activation_function=nn.hidden_activation_function,
+            output_activation_function=nn.output_activation_function
+        )
 
 class TournamentEvolution(TicTacToeEvolution):
     def __init__(self, n:int):
@@ -335,10 +365,81 @@ class SelfEvolution(TicTacToeEvolution):
     def __init__(self, hidden_sizes = [16, 32, 16]):
         self.nn = self._create_random_nn(hidden_sizes)
 
-    def train(self, epochs:int):
-        
+    def train(self, epochs:int, sigma:float = 0.05, verbose:bool = True):
+        """Entraine l'IA en jouant contre elle-même.
+
+        Lors d'une défaite, applique une mutation ciblée sur le dernier coup joué
+        par le joueur perdant pour réduire la probabilité de rejouer ce coup.
+
+        :param epochs: Nombre de parties jouées
+        :param sigma: Amplitude de la mutation ciblée
+        :param verbose: Si True affiche la progression
+        """
         for e in range(epochs):
-            pass
+            game = Board()
+            history = []  # tuples (board_before_move, player, move)
+
+            while not game.is_ended():
+                current_player = game.get_current_player()
+                board_before = Board(game)  # copie de l'état avant le coup
+                move = self._get_move(game, self.nn, allow_illegal_moves=False)
+                history.append((board_before, current_player, move))
+
+                try:
+                    game[move] = current_player
+                except Exception:
+                    # Coup illégal -> l'autre joueur gagne
+                    game.winner = O if current_player == X else X
+                    break
+
+            # Si match nul, on ne fait rien
+            if game.winner is None:
+                continue
+
+            losing_player = X if game.winner == O else O
+
+            # Trouver le dernier coup du joueur perdant
+            last_board = None
+            last_move = None
+            for b, p, mv in reversed(history):
+                if p == losing_player:
+                    last_board = b
+                    last_move = mv
+                    break
+
+            if last_move is not None:
+                # Appliquer une mutation ciblée pour diminuer l'activation du coup perdant
+                self.nn = self._targeted_mutation(self.nn, last_board, losing_player, last_move, sigma=sigma)
+
+            if verbose:
+                sys.stdout.write(f"\rEpoch: {e}/{epochs}")
+                sys.stdout.flush()
+
+        if verbose:
+            print("\nTraining completed.")
+
+
+def self_evol_main():
+    """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
+    evol = SelfEvolution()
+
+    rounds = 5
+    epochs_per_round = 10000
+
+    for i in range(rounds):
+        print(f"\n=== Round {i + 1}/{rounds} - training {epochs_per_round} epochs ===")
+        evol.train(epochs_per_round, sigma=0.03, verbose=True)
+
+        # Évaluer face au PerfectBot
+        wins = 0.0
+        n = 5
+        for _ in range(n):
+            wins += evol.get_game_score(evol.nn, PerfectBot())
+        print(f"Winrate vs perfect (X side): {wins / n:.3f}")
+
+    # Afficher une partie finale
+    print("\nPartie finale (affichée) :")
+    evol.get_game_score(evol.nn, PerfectBot(), display=True, early_stop=False)
 
 def main():
-    tournament_main()
+    self_evol_main()

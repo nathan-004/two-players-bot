@@ -194,7 +194,7 @@ class TicTacToeEvolution:
     def _get_index_from_move(self, pos:Position):
         return pos.x * 3 + pos.y
     
-    def _targeted_mutation(self, nn:NeuralNetwork, board:Board, player:int, last_move:Position, sigma = 0.01):
+    def _targeted_mutation(self, nn:NeuralNetwork, board:Board, player:int, last_move:Position, sigma = 0.01, factor:float = 1.0):
         """
         Modifie les poids et les biais en fonction de la part d'activation de chaque neurone vers le coups perdant
 
@@ -236,13 +236,13 @@ class TicTacToeEvolution:
         for l, (w, b) in enumerate(zip(weights, biases)):
             r_out = responsibilities[l + 1][:, None]  # (next,1)
             r_in = responsibilities[l][None, :]       # (1, prev)
-            factor = r_out * r_in                     # (next, prev)
+            factor_ = r_out * r_in                     # (next, prev)
 
-            noise_w = np.random.normal(0, sigma, w.shape) * factor
+            noise_w = np.random.normal(0, sigma, w.shape) * factor_
             noise_b = np.random.normal(0, sigma, b.shape) * r_out
 
-            new_weights.append(w + noise_w)
-            new_biases.append(b + noise_b)
+            new_weights.append(w + factor * np.absolute(noise_w))
+            new_biases.append(b + factor * np.absolute(noise_b))
 
         return NeuralNetwork(
             weights=new_weights,
@@ -391,14 +391,23 @@ class SelfEvolution(TicTacToeEvolution):
                     # Coup illégal -> l'autre joueur gagne
                     game.winner = O if current_player == X else X
                     break
+                
+            winner = {
+                X: "X",
+                O: "O",
+                None: "Draw"
+            }.get(game.winner, "?")
+
+            if verbose:
+                print(f"\rEpoch: {e}/{epochs} | Result: {winner}", end='', flush=True)
 
             # Si match nul, on ne fait rien
             if game.winner is None:
                 continue
 
             losing_player = X if game.winner == O else O
+            winning_player = O if game.winner == O else O
 
-            # Trouver le dernier coup du joueur perdant
             last_board = None
             last_move = None
             for b, p, mv in reversed(history):
@@ -409,11 +418,18 @@ class SelfEvolution(TicTacToeEvolution):
 
             if last_move is not None:
                 # Appliquer une mutation ciblée pour diminuer l'activation du coup perdant
-                self.nn = self._targeted_mutation(self.nn, last_board, losing_player, last_move, sigma=sigma)
+                self.nn = self._targeted_mutation(self.nn, last_board, losing_player, last_move, sigma=sigma, factor=-1)
 
-            if verbose:
-                sys.stdout.write(f"\rEpoch: {e}/{epochs}")
-                sys.stdout.flush()
+            last_board = None
+            last_move = None
+            for b, p, mv in reversed(history):
+                if p == winning_player:
+                    last_board = b
+                    last_move = mv
+                    break
+
+            if last_move is not None:
+                self.nn = self._targeted_mutation(self.nn, last_board, winning_player, last_move, sigma=sigma)
 
         if verbose:
             print("\nTraining completed.")
@@ -421,10 +437,10 @@ class SelfEvolution(TicTacToeEvolution):
 
 def self_evol_main():
     """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
-    evol = SelfEvolution()
+    evol = SelfEvolution([16, 32, 16])
 
     rounds = 5
-    epochs_per_round = 10000
+    epochs_per_round = 20000
 
     for i in range(rounds):
         print(f"\n=== Round {i + 1}/{rounds} - training {epochs_per_round} epochs ===")

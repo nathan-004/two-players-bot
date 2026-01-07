@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 from typing import Optional
 
 def softmax(x):
@@ -75,3 +76,48 @@ class NeuralNetwork:
         for w in self.weights:
             layers.append(w.shape[1])
         return layers
+    
+    
+    def save(self, filepath: str) -> None:
+        """
+        Sauvegarde le réseau neuronal dans un fichier via pickle.
+        Le fichier contient un dict avec les clés: 'weights', 'biases',
+        'hidden_activation_function' et 'output_activation_function'.
+        """
+        data = {
+            "weights": self.weights,
+            "biases": self.biases,
+            "hidden_activation_function": self.hidden_activation_function,
+            "output_activation_function": self.output_activation_function,
+        }
+        with open(filepath, "wb") as f:
+            pickle.dump(data, f)
+    
+    
+    @classmethod
+    def load(cls, filepath: str) -> "NeuralNetwork":
+        """
+        Charge un réseau neuronal depuis un fichier et retourne une instance de NeuralNetwork.
+        """
+        with open(filepath, "rb") as f:
+            data = pickle.load(f)
+        # validation minimale
+        if not {"weights", "biases"}.issubset(data):
+            raise ValueError("Fichier de réseau invalide (clés manquantes).")
+        return cls.from_weights(weights=data["weights"], biases=data["biases"],
+                                 hidden_activation_function=data.get("hidden_activation_function", "relu"),
+                                 output_activation_function=data.get("output_activation_function", "linear"))
+    
+
+def save(network: NeuralNetwork, filepath: str) -> None:
+    """
+    Fonction utilitaire: sauvegarde un NeuralNetwork sur disque.
+    """
+    network.save(filepath)
+    
+    
+def load(filepath: str) -> NeuralNetwork:
+    """
+    Fonction utilitaire: charge un NeuralNetwork depuis un fichier.
+    """
+    return NeuralNetwork.load(filepath)

@@ -375,6 +375,12 @@ class SelfEvolution(TicTacToeEvolution):
         :param sigma: Amplitude de la mutation ciblée
         :param verbose: Si True affiche la progression
         """
+        games = {
+            X: 0,
+            O: 0,
+            None: 0
+        }
+
         for e in range(epochs):
             game = Board()
             history = []  # tuples (board_before_move, player, move)
@@ -382,7 +388,7 @@ class SelfEvolution(TicTacToeEvolution):
             while not game.is_ended():
                 current_player = game.get_current_player()
                 board_before = Board(game)  # copie de l'état avant le coup
-                move = self._get_move(game, self.nn, allow_illegal_moves=False)
+                move = self._get_move(game, self.nn, allow_illegal_moves=True)
                 history.append((board_before, current_player, move))
 
                 try:
@@ -392,14 +398,19 @@ class SelfEvolution(TicTacToeEvolution):
                     game.winner = O if current_player == X else X
                     break
                 
-            winner = {
-                X: "X",
-                O: "O",
-                None: "Draw"
-            }.get(game.winner, "?")
+            games[game.winner] += 1
 
             if verbose:
-                print(f"\rEpoch: {e}/{epochs} | Result: {winner}", end='', flush=True)
+                total = max(1, games[X] + games[O] + games[None])
+
+                print(
+                    f"\rEpoch {e}/{epochs} | "
+                    f"X: {games[X]:4d} ({games[X]/total:.1%})  "
+                    f"O: {games[O]:4d} ({games[O]/total:.1%})  "
+                    f"Draw: {games[None]:4d} ({games[None]/total:.1%})",
+                    end="",
+                    flush=True
+                )
 
             # Si match nul, on ne fait rien
             if game.winner is None:
@@ -429,7 +440,7 @@ class SelfEvolution(TicTacToeEvolution):
                     break
 
             if last_move is not None:
-                self.nn = self._targeted_mutation(self.nn, last_board, winning_player, last_move, sigma=sigma)
+                self.nn = self._targeted_mutation(self.nn, last_board, winning_player, last_move, sigma=sigma*0.5)
 
         if verbose:
             print("\nTraining completed.")
@@ -448,7 +459,7 @@ def self_evol_main():
 
         # Évaluer face au PerfectBot
         wins = 0.0
-        n = 5
+        n = int(10 * (i+1)/5)
         for _ in range(n):
             wins += evol.get_game_score(evol.nn, PerfectBot())
         print(f"Winrate vs perfect (X side): {wins / n:.3f}")

@@ -363,6 +363,7 @@ class SelfEvolution(TicTacToeEvolution):
     """
 
     def __init__(self, hidden_sizes = [16, 32, 16]):
+        self.hidden_sizes = hidden_sizes
         self.nn = self._create_random_nn(hidden_sizes)
 
     def train(self, epochs:int, sigma:float = 0.05, verbose:bool = True):
@@ -380,15 +381,24 @@ class SelfEvolution(TicTacToeEvolution):
             O: 0,
             None: 0
         }
+        
+        opponent = self._mutate(self.nn) # Adversaire qui n'est pas modifié à chaque epoch
+        cons_draws = 0
 
         for e in range(epochs):
+            if cons_draws >= 1000:
+                opponent = self._create_random_nn(self.hidden_sizes)
+            elif e % 1000 == 0:
+                opponent = self._mutate(self.nn, sigma=0.01)
+
             game = Board()
             history = []  # tuples (board_before_move, player, move)
+            main_player = random.choice([X, O])
 
             while not game.is_ended():
                 current_player = game.get_current_player()
                 board_before = Board(game)  # copie de l'état avant le coup
-                move = self._get_move(game, self.nn, allow_illegal_moves=True)
+                move = self._get_move(game, self.nn if current_player == main_player else opponent, allow_illegal_moves=False)
                 history.append((board_before, current_player, move))
 
                 try:
@@ -414,33 +424,38 @@ class SelfEvolution(TicTacToeEvolution):
 
             # Si match nul, on ne fait rien
             if game.winner is None:
+                cons_draws += 1
                 continue
 
+            cons_draws = 0
+
             losing_player = X if game.winner == O else O
-            winning_player = O if game.winner == O else O
+            winning_player = O if game.winner == O else X
 
-            last_board = None
-            last_move = None
-            for b, p, mv in reversed(history):
-                if p == losing_player:
-                    last_board = b
-                    last_move = mv
-                    break
+            if losing_player == main_player:
+                last_board = None
+                last_move = None
+                for b, p, mv in reversed(history):
+                    if p == losing_player:
+                        last_board = b
+                        last_move = mv
+                        break
 
-            if last_move is not None:
-                # Appliquer une mutation ciblée pour diminuer l'activation du coup perdant
-                self.nn = self._targeted_mutation(self.nn, last_board, losing_player, last_move, sigma=sigma, factor=-1)
+                if last_move is not None:
+                    # Appliquer une mutation ciblée pour diminuer l'activation du coup perdant
+                    self.nn = self._targeted_mutation(self.nn, last_board, losing_player, last_move, sigma=sigma, factor=-1)
 
-            last_board = None
-            last_move = None
-            for b, p, mv in reversed(history):
-                if p == winning_player:
-                    last_board = b
-                    last_move = mv
-                    break
+            if winning_player == main_player:
+                last_board = None
+                last_move = None
+                for b, p, mv in reversed(history):
+                    if p == winning_player:
+                        last_board = b
+                        last_move = mv
+                        break
 
-            if last_move is not None:
-                self.nn = self._targeted_mutation(self.nn, last_board, winning_player, last_move, sigma=sigma*0.5)
+                if last_move is not None:
+                    self.nn = self._targeted_mutation(self.nn, last_board, winning_player, last_move, sigma=sigma)
 
         if verbose:
             print("\nTraining completed.")

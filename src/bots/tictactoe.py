@@ -383,12 +383,13 @@ class SelfEvolution(TicTacToeEvolution):
         }
         
         opponent = self._mutate(self.nn) # Adversaire qui n'est pas modifié à chaque epoch
-        cons_draws = 0
+        cons = 0
+        current_cons = BLANK
 
         for e in range(epochs):
-            if cons_draws >= 1000:
-                opponent = self._create_random_nn(self.hidden_sizes)
-            elif e % 1000 == 0:
+            if cons >= 50:
+                opponent = self._mutate(self.nn, sigma = 0.1)
+            elif e % 100 == 0:
                 opponent = self._mutate(self.nn, sigma=0.01)
 
             game = Board()
@@ -421,10 +422,17 @@ class SelfEvolution(TicTacToeEvolution):
                     end="",
                     flush=True
                 )
+            if game.winner is BLANK and current_cons is BLANK:
+                cons += 1
+            elif game.winner == current_cons:
+                cons += 1
+            else:
+                cons = 1
+            
+            current_cons = game.winner
 
             # Si match nul, on ne fait rien
             if game.winner is None:
-                cons_draws += 1
                 continue
 
             cons_draws = 0
@@ -460,24 +468,30 @@ class SelfEvolution(TicTacToeEvolution):
         if verbose:
             print("\nTraining completed.")
 
+    def evaluate(self, n=5):
+        total = 0
+         
+        for i in range(n):
+            main_player = random.choice([X, O])
+            total += self.get_game_score(self.nn, PerfectBot())
+        
+        return total / n
 
 def self_evol_main():
     """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
-    evol = SelfEvolution([16, 32, 16])
+    evol = SelfEvolution([32, 64, 32])
 
     rounds = 5
-    epochs_per_round = 20000
+    epochs_per_round = 6000
 
     for i in range(rounds):
         print(f"\n=== Round {i + 1}/{rounds} - training {epochs_per_round} epochs ===")
         evol.train(epochs_per_round, sigma=0.03, verbose=True)
 
         # Évaluer face au PerfectBot
-        wins = 0.0
         n = int(10 * (i+1)/5)
-        for _ in range(n):
-            wins += evol.get_game_score(evol.nn, PerfectBot())
-        print(f"Winrate vs perfect (X side): {wins / n:.3f}")
+        score = evol.evaluate(n = n)
+        print(f"Winrate vs perfect (X side): {score:.3f}")
 
     # Afficher une partie finale
     print("\nPartie finale (affichée) :")

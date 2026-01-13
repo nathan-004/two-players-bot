@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from collections import defaultdict
 
-from src.learning.neural_network import NeuralNetwork
+from src.learning.neural_network import NeuralNetwork, save
 from src.games.tictactoe import *
 
 def board_1D(board, player=O):
@@ -481,7 +481,10 @@ def self_evol_main():
 
     # Afficher une partie finale
     print("\nPartie finale (affichée) :")
-    evol.get_game_score(evol.nn, PerfectBot(), display=True, early_stop=False)
+    while input("press q to quit") != "q":
+        evol.get_game_score(evol.nn, PerfectBot(), display=True, early_stop=False)
+    
+    save(evol.nn, "saves/nn1.pkl")
 
 def main():
     self_evol_main()

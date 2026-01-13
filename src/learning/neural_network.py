@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import pickle
 from typing import Optional
 
@@ -90,6 +91,10 @@ class NeuralNetwork:
             "hidden_activation_function": self.hidden_activation_function,
             "output_activation_function": self.output_activation_function,
         }
+
+        dirpath = os.path.dirname(filepath)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         with open(filepath, "wb") as f:
             pickle.dump(data, f)
     

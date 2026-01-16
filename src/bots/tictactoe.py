@@ -3,6 +3,7 @@ from typing import Optional
 import sys
 import numpy as np
 from collections import defaultdict
+from copy import deepcopy
 
 from src.learning.neural_network import NeuralNetwork, save
 from src.games.tictactoe import *
@@ -87,7 +88,7 @@ class TicTacToeEvolution:
         s2 = 1 - self.get_game_score(nn2, nn1)
         return (s1 + s2) / 2
 
-    def get_game_score(self, nn1, nn2, display = False, early_stop = False):
+    def get_game_score(self, nn1, nn2, display = False, early_stop = False, return_first_move:bool = False):
         game = Board()
         players = {X: nn1, O: nn2}
         
@@ -102,7 +103,7 @@ class TicTacToeEvolution:
                 move = self._get_move(game, nn, allow_illegal_moves=False)
             else:
                 move = random.choice(game.get_legal_move())
-            
+                first_move = move
             try:
                 game[move] = current_player
             except Exception as e:
@@ -116,11 +117,16 @@ class TicTacToeEvolution:
             coups += 1
 
         if game.winner is None:
-            return 0.5
+            s = 0.5
         elif players[game.winner] is nn1:
-            return 1.0
+            s = 1.0
         else:
-            return 0
+            s = 0
+        
+        if not return_first_move:
+            return s
+        else:
+            return (s, first_move)
     
     def _create_random_nn(self, hidden_sizes:list = None) -> NeuralNetwork:
         if hidden_sizes is None:
@@ -476,13 +482,34 @@ class SelfEvolution(TicTacToeEvolution):
             total += self.get_game_score(self.nn, PerfectBot())
         
         return total / n
-
+    
+    def heatmap(self, nn = None, n = 30):
+        if nn is None:
+            nn = self.nn
+        total = defaultdict(lambda : [0, 0]) # Dictionnaire position: score moyen
+        
+        for i in range(n):
+            main_player = random.choice([X, O])
+            score, first_move = self.get_game_score(nn, PerfectBot(), return_first_move = True)
+            total[first_move][1] += score
+            total[first_move][0] += 1
+        
+        for y in range(3):
+            row = []
+            for x in range(3):
+                el = total[Position(x, y)]
+                res = el[1] / max(el[0], 1)
+                row.append(f"{res*100:.1f}")
+            print(" | ".join(row))
+        
 def self_evol_main():
     """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
     evol = SelfEvolution([32, 64, 32])
 
-    rounds = 5
-    epochs_per_round = 6000
+    rounds = 4
+    epochs_per_round = 5000
+    best_score = 0
+    best_nn = None
 
     for i in range(rounds):
         print(f"\n=== Round {i + 1}/{rounds} - training {epochs_per_round} epochs ===")
@@ -491,14 +518,20 @@ def self_evol_main():
         # Évaluer face au PerfectBot
         n = int(10 * (i+1)/5)
         score = evol.evaluate(n = n)
-        print(f"Winrate vs perfect (X side): {score:.3f}")
-
+        if score >= best_score:
+            best_score = score
+            best_nn = deepcopy(evol.nn)
+        print(f"Winrate vs perfect (X side): {score:.3f}, Best Winrate = {best_score}")
+    
+    evol.heatmap(best_nn)
+    
     # Afficher une partie finale
     print("\nPartie finale (affichée) :")
     while input("press q to quit") != "q":
-        evol.get_game_score(evol.nn, PerfectBot(), display=True, early_stop=False)
+        evol.get_game_score(best_nn, PerfectBot(), display=True, early_stop=False)
     
     save(evol.nn, "saves/nn1.pkl")
 
 def main():
     self_evol_main()
+

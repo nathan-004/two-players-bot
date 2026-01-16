@@ -9,7 +9,7 @@ from src.learning.neural_network import NeuralNetwork, save
 from src.games.tictactoe import *
 
 def board_1D(board, player=O):
-    return [1 if cell == player else 0 if cell is BLANK else -1 for row in board for cell in row]
+    return [1 if cell == player else 0 if cell is BLANK else 0 for row in board for cell in row]
 
 def elo_update(r1, r2, s1, K=20):
     e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
@@ -128,7 +128,7 @@ class TicTacToeEvolution:
         else:
             return (s, first_move)
     
-    def _create_random_nn(self, hidden_sizes:list = None) -> NeuralNetwork:
+    def _create_random_nn(self, hidden_sizes:list = None, n_board:int = 2) -> NeuralNetwork:
         if hidden_sizes is None:
             min_layers = 1
             max_layers = 3
@@ -141,8 +141,8 @@ class TicTacToeEvolution:
             ]
 
         nn = NeuralNetwork(
-            layers_dimensions=[9] + hidden_sizes + [9],
-            hidden_activation_function="linear",
+            layers_dimensions=[9*n_board] + hidden_sizes + [9],
+            hidden_activation_function="relu",
             output_activation_function="softmax"
         )
 
@@ -153,7 +153,7 @@ class TicTacToeEvolution:
             return nn._get_move(board)
 
         p = board.get_current_player()
-        moves_prob = nn.prediction(board_1D(board, p))
+        moves_prob = nn.prediction(board_1D(board, p) + board_1D(board, {X: O, O: X}[p]))
 
         if allow_illegal_moves:
             max_ = max(moves_prob)
@@ -214,7 +214,7 @@ class TicTacToeEvolution:
         biases = [b.copy() for b in nn.biases]
 
         # activations stored as 1D arrays (matching np.dot(w, a) semantics)
-        activations = [np.array(board_1D(board, player), dtype=float)]
+        activations = [np.array(board_1D(board, player) + board_1D(board, {X: O, O: X}[player]), dtype=float)]
 
         # Stocker les activations (forward pass)
         for idx, (w, b) in enumerate(zip(weights, biases)):
@@ -530,8 +530,7 @@ def self_evol_main():
     while input("press q to quit") != "q":
         evol.get_game_score(best_nn, PerfectBot(), display=True, early_stop=False)
     
-    save(evol.nn, "saves/nn1.pkl")
+    save(best_nn, "saves/nn1.pkl")
 
 def main():
     self_evol_main()
-

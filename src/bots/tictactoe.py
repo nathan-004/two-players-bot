@@ -504,7 +504,7 @@ class SelfEvolution(TicTacToeEvolution):
         
 def self_evol_main():
     """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
-    evol = SelfEvolution([32, 64, 32])
+    evol = SelfEvolution([18, 64, 64, 9])
 
     rounds = 4
     epochs_per_round = 5000

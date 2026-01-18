@@ -474,6 +474,32 @@ class SelfEvolution(TicTacToeEvolution):
         if verbose:
             print("\nTraining completed.")
 
+    def _targeted_mutation(self, nn, board, player, last_move, sigma=0.01, factor = 1):
+        cur_nn = nn
+        sigma /= 8
+
+        for b, m in data_augmentation(board, last_move):
+            cur_nn = super()._targeted_mutation(cur_nn, b, player, m, sigma, factor)
+
+        return cur_nn
+
+    def _average_networks(self, networks):
+        weights = []
+        biases = []
+
+        for i in range(len(networks[0].weights)):
+            w = sum(nn.weights[i] for nn in networks) / len(networks)
+            b = sum(nn.biases[i] for nn in networks) / len(networks)
+            weights.append(w)
+            biases.append(b)
+
+        return NeuralNetwork(
+            weights=weights,
+            biases=biases,
+            hidden_activation_function=networks[0].hidden_activation_function,
+            output_activation_function=networks[0].output_activation_function
+        )
+
     def evaluate(self, n=5):
         total = 0
          

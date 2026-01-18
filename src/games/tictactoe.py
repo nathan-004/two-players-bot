@@ -127,6 +127,36 @@ class Board(list):
             return self[idx.y][idx.x]
         else:
             return super().__getitem__(idx)
+        
+def rotate90(board:Board):
+    return [list(row) for row in zip(*board)][::-1]
+
+def rotate_move_90(pos:Position, n=3):
+    return Position(pos.y, n - 1 - pos.x)
+
+def mirror_h(board):
+    return [row[::-1] for row in board]
+
+def mirror_move(pos, n=3):
+    return Position(n - 1 - pos.x, pos.y)
+
+def data_augmentation(board: Board, move: Position):
+    cur = board
+    cur_move = move
+
+    for _ in range(4):
+        yield cur, cur_move
+        yield mirror_h(cur), mirror_move(cur_move)
+
+        cur = rotate90(cur)
+        cur_move = rotate_move_90(cur_move)
 
 b = Board()
+
 assert not b.is_ended()
+
+if __name__ == "__main__":
+    b[Position(0, 0)] = X
+    for board, move in data_augmentation(b, Position(0, 0)):
+        print(Board(board), move)
+        input()

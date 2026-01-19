@@ -476,13 +476,12 @@ class SelfEvolution(TicTacToeEvolution):
             print("\nTraining completed.")
 
     def _targeted_mutation(self, nn, board, player, last_move, sigma=0.01, factor = 1):
-        cur_nn = nn
-        sigma /= 8
-
+        mutated = []
+        
         for b, m in data_augmentation(board, last_move):
-            cur_nn = super()._targeted_mutation(cur_nn, b, player, m, sigma, factor)
+            mutated.append(super()._targeted_mutation(nn, b, player, m, sigma, factor))
 
-        return cur_nn
+        return self._average_networks(mutated)
 
     def _average_networks(self, networks):
         weights = []
@@ -561,3 +560,4 @@ def self_evol_main():
 
 def main():
     self_evol_main()
+

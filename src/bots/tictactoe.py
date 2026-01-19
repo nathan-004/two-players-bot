@@ -88,7 +88,7 @@ class TicTacToeEvolution:
         s2 = 1 - self.get_game_score(nn2, nn1)
         return (s1 + s2) / 2
 
-    def get_game_score(self, nn1, nn2, display = False, early_stop = False, return_first_move:bool = False):
+    def get_game_score(self, nn1, nn2, display = False, early_stop = False, first_move_:Position = None):
         game = Board()
         players = {X: nn1, O: nn2}
         
@@ -102,7 +102,11 @@ class TicTacToeEvolution:
                 nn = players[current_player]
                 move = self._get_move(game, nn, allow_illegal_moves=False)
             else:
-                move = random.choice(game.get_legal_move())
+                if first_move_ is not None:
+                    move = first_move_
+                else:
+                    move = random.choice(game.get_legal_move())
+
                 first_move = move
             try:
                 game[move] = current_player
@@ -123,11 +127,8 @@ class TicTacToeEvolution:
         else:
             s = 0
         
-        if not return_first_move:
-            return s
-        else:
-            return (s, first_move)
-    
+        return s
+        
     def _create_random_nn(self, hidden_sizes:list = None, n_board:int = 2) -> NeuralNetwork:
         if hidden_sizes is None:
             min_layers = 1
@@ -500,23 +501,23 @@ class SelfEvolution(TicTacToeEvolution):
             output_activation_function=networks[0].output_activation_function
         )
 
-    def evaluate(self, n=5):
+    def evaluate(self):
         total = 0
          
-        for i in range(n):
+        for move in Board().get_legal_move():
             main_player = random.choice([X, O])
-            total += self.get_game_score(self.nn, PerfectBot())
+            total += self.get_game_score(self.nn, PerfectBot(), first_move_ = move)
         
-        return total / n
+        return total / 9
     
-    def heatmap(self, nn = None, n = 30):
+    def heatmap(self, nn = None):
         if nn is None:
             nn = self.nn
         total = defaultdict(lambda : [0, 0]) # Dictionnaire position: score moyen
         
-        for i in range(n):
+        for first_move in Board().get_legal_move():
             main_player = random.choice([X, O])
-            score, first_move = self.get_game_score(nn, PerfectBot(), return_first_move = True)
+            score = self.get_game_score(nn, PerfectBot(), first_move_ = first_move)
             total[first_move][1] += score
             total[first_move][0] += 1
         
@@ -530,20 +531,20 @@ class SelfEvolution(TicTacToeEvolution):
         
 def self_evol_main():
     """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
-    evol = SelfEvolution([18, 64, 64, 9])
+    evol = SelfEvolution([16, 32, 32, 8])
 
-    rounds = 4
-    epochs_per_round = 5000
+    epochs_per_round = 3000
     best_score = 0
     best_nn = None
-
-    for i in range(rounds):
-        print(f"\n=== Round {i + 1}/{rounds} - training {epochs_per_round} epochs ===")
+    i = 0
+    
+    while input("Taper q pour arrêter l'entraînement") != "q":
+        i += 1
+        print(f"\n=== Round {i + 1} - training {epochs_per_round} epochs ===")
         evol.train(epochs_per_round, sigma=0.03, verbose=True)
 
         # Évaluer face au PerfectBot
-        n = int(10 * (i+1)/5)
-        score = evol.evaluate(n = n)
+        score = evol.evaluate()
         if score >= best_score:
             best_score = score
             best_nn = deepcopy(evol.nn)

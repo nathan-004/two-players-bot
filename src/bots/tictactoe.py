@@ -224,16 +224,13 @@ class TicTacToeEvolution:
             a = nn.activation_functions[idx](z)
             activations.append(a)
 
-        # Calcul des responsabilités (1D arrays)
         responsibilities = [np.zeros_like(a) for a in activations]
         responsibilities[-1][res] = 1.0
 
-        # Retro Propagation des responsabilités
         for l in reversed(range(len(weights))):
             w = weights[l]
             r_next = responsibilities[l + 1]
 
-            # w.T: (prev, next), r_next: (next,)
             contrib = np.abs(w.T * r_next).sum(axis=1)
             responsibilities[l] = contrib / (contrib.sum() + 1e-8)
 
@@ -407,12 +404,14 @@ class SelfEvolution(TicTacToeEvolution):
                 current_player = game.get_current_player()
                 board_before = Board(game)  # copie de l'état avant le coup
                 move = self._get_move(game, self.nn if current_player == main_player else opponent, allow_illegal_moves=False)
-                history.append((board_before, current_player, move))
+
+                if current_player == main_player:
+                    board_before = Board(game)
+                    history.append((board_before, current_player, move))
 
                 try:
                     game[move] = current_player
                 except Exception:
-                    # Coup illégal -> l'autre joueur gagne
                     game.winner = O if current_player == X else X
                     break
                 
@@ -438,42 +437,36 @@ class SelfEvolution(TicTacToeEvolution):
             
             current_cons = game.winner
 
-            # Si match nul, on ne fait rien
             if game.winner is None:
                 continue
-
-            cons_draws = 0
 
             losing_player = X if game.winner == O else O
             winning_player = O if game.winner == O else X
 
             if losing_player == main_player:
-                last_board = None
-                last_move = None
-                for b, p, mv in reversed(history):
-                    if p == losing_player:
-                        last_board = b
-                        last_move = mv
-                        break
-
-                if last_move is not None:
-                    # Appliquer une mutation ciblée pour diminuer l'activation du coup perdant
-                    self.nn = self._targeted_mutation(self.nn, last_board, losing_player, last_move, sigma=sigma, factor=-1)
+                if history != []:
+                    self.nn = self.mutate_losing_game(self.nn, history, sigma, factor=-1)
 
             if winning_player == main_player:
-                last_board = None
-                last_move = None
-                for b, p, mv in reversed(history):
-                    if p == winning_player:
-                        last_board = b
-                        last_move = mv
-                        break
-
-                if last_move is not None:
-                    self.nn = self._targeted_mutation(self.nn, last_board, winning_player, last_move, sigma=sigma)
+                if history != []:
+                    self.nn = self.mutate_losing_game(self.nn, history, sigma, factor=1)
 
         if verbose:
             print("\nTraining completed.")
+
+    def mutate_losing_game(self, nn:NeuralNetwork, history:list, sigma = 0.01, gamma = 0.85, factor = -1):
+        for i, (board, player, move) in enumerate(reversed(history)):
+            factor = gamma ** i
+            nn = self._targeted_mutation(
+                nn=nn,
+                board=board,
+                player=player,
+                last_move=move,
+                sigma=sigma,
+                factor=factor
+            )
+
+        return nn
 
     def _targeted_mutation(self, nn, board, player, last_move, sigma=0.01, factor = 1):
         mutated = []
@@ -504,9 +497,20 @@ class SelfEvolution(TicTacToeEvolution):
         total = 0
          
         for move in Board().get_legal_move():
-            main_player = random.choice([X, O])
-            total += self.get_game_score(self.nn, PerfectBot(), first_move_ = move)
-        
+            score_X = self.get_game_score(
+                self.nn,
+                PerfectBot(),
+                first_move_=move
+            )
+            total += score_X
+
+            score_X = self.get_game_score(
+                PerfectBot(),
+                self.nn,
+                first_move_=move
+            )
+            total += (1 - score_X)
+
         return total / 9
     
     def heatmap(self, nn = None):

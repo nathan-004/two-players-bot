@@ -370,7 +370,7 @@ class SelfEvolution(TicTacToeEvolution):
         self.hidden_sizes = hidden_sizes
         self.nn = self._create_random_nn(hidden_sizes)
 
-    def train(self, epochs:int, sigma:float = 0.05, verbose:bool = True):
+    def train(self, epochs:int, sigma:float = 0.05, verbose:bool = True, eps:float = 0.2):
         """Entraine l'IA en jouant contre elle-même.
 
         Lors d'une défaite, applique une mutation ciblée sur le dernier coup joué
@@ -391,19 +391,27 @@ class SelfEvolution(TicTacToeEvolution):
         current_cons = BLANK
 
         for e in range(epochs):
-            if cons >= 50:
-                opponent = self._mutate(self.nn, sigma = 0.1)
-            elif e % 100 == 0:
-                opponent = self._mutate(self.nn, sigma=0.01)
+            if cons >= 100:
+                opponent = self._mutate(self.nn, sigma = 1)
+            elif e % 5 == 0:
+                opponent = self.nn
+            elif e % 23 == 0:
+                opponent = self._mutate(self.nn, sigma = 0.5)
+            self.opponent = opponent
 
             game = Board()
             history = []  # tuples (board_before_move, player, move)
             main_player = random.choice([X, O])
-
+            coups = 0
+            
             while not game.is_ended():
+                coups += 1
                 current_player = game.get_current_player()
                 board_before = Board(game)  # copie de l'état avant le coup
-                move = self._get_move(game, self.nn if current_player == main_player else opponent, allow_illegal_moves=False)
+                if coups <= 1 or random.uniform(0, 1) <= eps:
+                    move = random.choice(board_before.get_legal_move())
+                else:
+                    move = self._get_move(game, self.nn if current_player == main_player else opponent, allow_illegal_moves=False)
 
                 if current_player == main_player:
                     board_before = Board(game)
@@ -454,7 +462,7 @@ class SelfEvolution(TicTacToeEvolution):
         if verbose:
             print("\nTraining completed.")
 
-    def mutate_losing_game(self, nn:NeuralNetwork, history:list, sigma = 0.01, gamma = 0.85, factor = -1):
+    def mutate_losing_game(self, nn:NeuralNetwork, history:list, sigma = 0.01, gamma = 0.95, factor = -1):
         for i, (board, player, move) in enumerate(reversed(history)):
             factor = gamma ** i
             nn = self._targeted_mutation(
@@ -536,7 +544,7 @@ def self_evol_main():
     """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
     evol = SelfEvolution([16, 32, 32, 8])
 
-    epochs_per_round = 3000
+    epochs_per_round = 5000
     best_score = 0
     best_nn = None
     i = 0
@@ -544,7 +552,7 @@ def self_evol_main():
     while input("Taper q pour arrêter l'entraînement") != "q":
         i += 1
         print(f"\n=== Round {i + 1} - training {epochs_per_round} epochs ===")
-        evol.train(epochs_per_round, sigma=0.03, verbose=True)
+        evol.train(epochs_per_round, sigma=0.1, verbose=True)
 
         # Évaluer face au PerfectBot
         score = evol.evaluate()
@@ -552,6 +560,7 @@ def self_evol_main():
             best_score = score
             best_nn = deepcopy(evol.nn)
         print(f"Winrate vs perfect (X side): {score:.3f}, Best Winrate = {best_score}")
+        evol.get_game_score(evol.nn, evol.opponent, display = True, early_stop = False)
     
     evol.heatmap(best_nn)
     
@@ -564,4 +573,3 @@ def self_evol_main():
 
 def main():
     self_evol_main()
-

@@ -49,7 +49,7 @@ class PerfectBot:
         score, move = self._get_best_move(board)
         return move
 
-    def _get_best_move(self, board:Board):
+    def _get_best_move(self, board:Board, alpha=-float("inf"), beta=float("inf")):
         """Minimax algorithm returning a tuple (score, best_move).
 
         Score is from X's perspective: X win -> 1, O win -> -1, draw -> 0.
@@ -58,27 +58,40 @@ class PerfectBot:
             return ({X: 1, O: -1, BLANK: 0}[board.winner], None)
 
         current_player = board.get_current_player()
+        best_move = None
 
         if current_player == X:
             best_score = -float("inf")
-        else:
-            best_score = float("inf")
 
-        best_move = None
+            for move in board.get_legal_move():
+                new_board = Board(board)
+                new_board[move] = X
 
-        for move in board.get_legal_move():
-            new_board = Board(board)
-            new_board[move] = current_player
-            score, _ = self._get_best_move(new_board)
+                score, _ = self._get_best_move(new_board, alpha, beta)
 
-            if current_player == X:
                 if score > best_score:
                     best_score = score
                     best_move = move
-            else:
+
+                alpha = max(alpha, best_score)
+                if alpha >= beta:
+                    break
+        else:
+            best_score = float("inf")
+
+            for move in board.get_legal_move():
+                new_board = Board(board)
+                new_board[move] = O
+
+                score, _ = self._get_best_move(new_board, alpha, beta)
+
                 if score < best_score:
                     best_score = score
                     best_move = move
+
+                beta = min(beta, best_score)
+                if beta <= alpha:
+                    break
 
         return best_score, best_move
 

@@ -383,7 +383,7 @@ class SelfEvolution(TicTacToeEvolution):
         self.hidden_sizes = hidden_sizes
         self.nn = self._create_random_nn(hidden_sizes)
 
-    def train(self, epochs:int, sigma:float = 0.05, verbose:bool = True, eps:float = 0.2):
+    def train(self, epochs:int, sigma_win:float = 0.02, sigma_loss = 0.005, verbose:bool = True, eps:float = 0.2):
         """Entraine l'IA en jouant contre elle-même.
 
         Lors d'une défaite, applique une mutation ciblée sur le dernier coup joué
@@ -466,11 +466,11 @@ class SelfEvolution(TicTacToeEvolution):
 
             if losing_player == main_player:
                 if history != []:
-                    self.nn = self.mutate_losing_game(self.nn, history, sigma, factor=-1)
+                    self.nn = self.mutate_losing_game(self.nn, history, sigma_loss, factor=-1)
 
             if winning_player == main_player:
                 if history != []:
-                    self.nn = self.mutate_losing_game(self.nn, history, sigma, factor=1)
+                    self.nn = self.mutate_losing_game(self.nn, history, sigma_win, factor=1)
 
         if verbose:
             print("\nTraining completed.")
@@ -565,7 +565,7 @@ def self_evol_main():
     while input("Taper q pour arrêter l'entraînement") != "q":
         i += 1
         print(f"\n=== Round {i + 1} - training {epochs_per_round} epochs ===")
-        evol.train(epochs_per_round, sigma=0.1, verbose=True)
+        evol.train(epochs_per_round, verbose=True)
 
         # Évaluer face au PerfectBot
         score = evol.evaluate()

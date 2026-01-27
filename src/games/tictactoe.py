@@ -128,6 +128,9 @@ class Board(list):
         else:
             return super().__getitem__(idx)
         
+    def __hash__(self):
+        return super().__hash__()
+        
 def rotate90(board:Board):
     return [list(row) for row in zip(*board)][::-1]
 

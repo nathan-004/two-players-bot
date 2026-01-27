@@ -11,6 +11,12 @@ def str_to_board(chrs:str) -> Board:
     lst = json.loads(chrs)
     return Board(lst)
 
+def get_score(board:Board):
+    if board.is_ended():
+        return {X:1, O:-1, BLANK:0}[board.winner]
+    return 0
+    
+
 def main():
     with sqlite3.connect("datas/evals.db") as conn:
         games = {}
@@ -22,4 +28,4 @@ def main():
             if board in games:
                 continue
             
-            games[board] = board.
+            games[board] = board

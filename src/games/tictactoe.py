@@ -129,7 +129,12 @@ class Board(list):
             return super().__getitem__(idx)
         
     def __hash__(self):
-        return super().__hash__()
+        return hash(tuple(tuple(0 if cell is None else cell for cell in row) for row in self))
+    
+    def __eq__(self, other):
+        if not isinstance(other, Board):
+            return False
+        return all(all(self[y][x] == other[y][x] for x in range(3)) for y in range(3))
         
 def rotate90(board:Board):
     return [list(row) for row in zip(*board)][::-1]

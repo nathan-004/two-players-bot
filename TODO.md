@@ -1,0 +1,1 @@
+- [ ] Modifier hash pour prendre en compte miroir + symétrie

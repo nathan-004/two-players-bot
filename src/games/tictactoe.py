@@ -9,6 +9,12 @@ O = 1 # O stockage
 BLANK = None # Vide stockage
 BLANK_I = " " # Vide affichage
 
+VALS = {
+    X: X_I,
+    O: O_I,
+    BLANK: BLANK_I
+}
+
 class Position(NamedTuple):
     x:int
     y:int
@@ -129,7 +135,7 @@ class Board(list):
             return super().__getitem__(idx)
         
     def __hash__(self):
-        return hash(tuple(tuple(0 if cell is None else cell for cell in row) for row in self))
+        return hash("".join(["".join([VALS[val] for val in row]) for row in self]))
     
     def __eq__(self, other):
         if not isinstance(other, Board):

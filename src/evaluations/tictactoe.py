@@ -66,4 +66,19 @@ def main(verbose = False):
             
     with sqlite3.connect("datas/evals.db") as conn:
         cursor = conn.cursor()
-        #cursor.execute("CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY)")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS games (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                board_hash INTEGER UNIQUE,
+                score INTEGER
+            )
+        """)
+
+        for board, node in games.items():
+            cursor.execute("""
+                INSERT INTO games (board_hash, score)
+                VALUES (?, ?)
+            """, (hash(board), node.score))
+
+        conn.commit()

@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import time
 from collections import deque
 
 from src.games.tictactoe import *
@@ -22,23 +23,47 @@ class Node:
         self.board = board
         self.score = get_score(board)
         self.children = []
-
-def main():
-    with sqlite3.connect("datas/evals.db") as conn:
-        games = {}
-        waiting = deque([Board()])
+        self.parents = []
+    
+    def __hash__(self):
+        return self.board.__hash__()
+    
+    def __eq__(self, other):
+        if not isinstance(other, Node):
+            return False
+        return self.board == other.board
         
-        while bool(waiting):
-            board = waiting.popleft()
-            
-            if board in games:
-                continue
-            
-            games[board] = Node(board)
+class Root(Node):
+    pass
 
-            for move in board.get_legal_move():
-                new_board = Board(board)
-                current_player = board.get_current_player()
-                new_board[move] = current_player
-                waiting.append(new_board)
-        print(len(games))
+def main(verbose = False):
+    idx = 0
+    last = time.time()
+    games = {}
+    waiting = deque([Root(Board())])
+    
+    while bool(waiting):
+        cur_node = waiting.popleft()
+        
+        if cur_node in games:
+            continue
+        
+        board = cur_node.board
+        games[board] = cur_node
+
+        for move in board.get_legal_move():
+            new_board = Board(board)
+            current_player = board.get_current_player()
+            new_board[move] = current_player
+            new_node = Node(new_board)
+            new_node.parents.append(cur_node)
+            cur_node.children.append(new_node)
+            waiting.append(new_node)
+        if time.time() - last > 10:
+            last = time.time()
+            print(f"\rPosition : {idx}, Parties : {len(games)}", end="")
+        idx += 1
+            
+    with sqlite3.connect("datas/evals.db") as conn:
+        cursor = conn.cursor()
+        #cursor.execute("CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY)")

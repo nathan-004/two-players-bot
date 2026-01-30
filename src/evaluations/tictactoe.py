@@ -18,6 +18,19 @@ def get_score(board:Board):
         return {X:1, O:-1, BLANK:0}[board.winner]
     return 0
 
+def get_database_format_board(board:Board):
+    DATABASE_VALS = {
+        X: "x",
+        O: "o",
+        BLANK: "b",
+    }
+    res = []
+    
+    for row in board:
+        res.extend([DATABASE_VALS[val] for val in row])
+    
+    return tuple(res)
+        
 class Node:
     def __init__(self, board:Board):
         self.board = board
@@ -59,7 +72,7 @@ def main(verbose = False):
             new_node.parents.append(cur_node)
             cur_node.children.append(new_node)
             waiting.append(new_node)
-        if time.time() - last > 10:
+        if time.time() - last > 3:
             last = time.time()
             print(f"\rPosition : {idx}, Parties : {len(games)}", end="")
         idx += 1
@@ -70,15 +83,34 @@ def main(verbose = False):
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS games (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                board_hash INTEGER UNIQUE,
-                score INTEGER
+                topLeftSquare STRING,
+                topMiddleSquare STRING,
+                topRightSquare STRING,
+                middleLeftSquare STRING,
+                middleMiddleSquare STRING,
+                middleRightSquare STRING,
+                bottomLeftSquare STRING,
+                bottomMiddleSquare STRING,
+                bottomRightSquare STRING,
+                player STRING
             )
         """)
 
         for board, node in games.items():
             cursor.execute("""
-                INSERT INTO games (board_hash, score)
-                VALUES (?, ?)
-            """, (hash(board), node.score))
+                INSERT INTO games (
+                    topLeftSquare,
+                    topMiddleSquare,
+                    topRightSquare,
+                    middleLeftSquare,
+                    middleMiddleSquare,
+                    middleRightSquare,
+                    bottomLeftSquare,
+                    bottomMiddleSquare,
+                    bottomRightSquare,
+                    player
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (*get_database_format_board(board), {X: "x", O: "o"}[board.get_current_player()]))
 
         conn.commit()

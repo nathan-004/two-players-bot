@@ -383,7 +383,7 @@ class SelfEvolution(TicTacToeEvolution):
         self.hidden_sizes = hidden_sizes
         self.nn = self._create_random_nn(hidden_sizes)
 
-    def train(self, epochs:int, sigma_win:float = 0.02, sigma_loss = 0.01, verbose:bool = True, eps:float = 0.3):
+    def train(self, epochs:int, sigma_win:float = 0.01, sigma_loss = 0.03, verbose:bool = True, eps:float = 0.3):
         """Entraine l'IA en jouant contre elle-même.
 
         Lors d'une défaite, applique une mutation ciblée sur le dernier coup joué
@@ -555,7 +555,7 @@ class SelfEvolution(TicTacToeEvolution):
         
 def self_evol_main():
     """Lance un entraînement en self-play puis évalue le réseau contre `PerfectBot`."""
-    evol = SelfEvolution([16, 64, 16])
+    evol = SelfEvolution([16, 32, 16])
 
     epochs_per_round = 5000
     best_score = 0

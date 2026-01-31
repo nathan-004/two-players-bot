@@ -92,6 +92,7 @@ def main(verbose = False):
                 bottomLeftSquare STRING,
                 bottomMiddleSquare STRING,
                 bottomRightSquare STRING,
+                hash STRING UNIQUE,
                 player STRING
             )
         """)
@@ -108,9 +109,10 @@ def main(verbose = False):
                     bottomLeftSquare,
                     bottomMiddleSquare,
                     bottomRightSquare,
+                    hash,
                     player
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (*get_database_format_board(board), {X: "x", O: "o"}[board.get_current_player()]))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (*get_database_format_board(board), node.__hash__(), {X: "x", O: "o"}[board.get_current_player()]))
 
         conn.commit()

@@ -49,7 +49,7 @@ class Node:
 class Root(Node):
     pass
 
-def main(verbose = False):
+def main(verbose = True):
     idx = 0
     last = time.time()
     games = {}
@@ -74,7 +74,8 @@ def main(verbose = False):
             waiting.append(new_node)
         if time.time() - last > 3:
             last = time.time()
-            print(f"\rPosition : {idx}, Parties : {len(games)}", end="")
+            if verbose:
+                print(f"\rPosition : {idx}, Parties : {len(games)}", end="")
         idx += 1
             
     with sqlite3.connect("datas/evals.db") as conn:

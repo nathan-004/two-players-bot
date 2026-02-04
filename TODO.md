@@ -1,1 +1,2 @@
 - [ ] Modifier hash pour prendre en compte miroir + symétrie
+- [ ] Stocker parties + score pour création de graphe

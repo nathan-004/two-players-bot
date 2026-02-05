@@ -97,6 +97,13 @@ def main(verbose = True):
                 player STRING
             )
         """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                score FLOAT
+            )
+        """)
 
         for board, node in games.items():
             cursor.execute("""
@@ -115,5 +122,12 @@ def main(verbose = True):
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (*get_database_format_board(board), node.__hash__(), {X: "x", O: "o"}[board.get_current_player()]))
+            
+            cursor.execute("""
+                INSERT INTO scores (
+                    score
+                )
+                VALUES (?)
+            """, (node.score,))
 
         conn.commit()

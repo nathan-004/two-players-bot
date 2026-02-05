@@ -49,7 +49,7 @@ class Node:
 class Root(Node):
     pass
 
-def main(verbose = True):
+def create_games_database():
     idx = 0
     last = time.time()
     games = {}
@@ -131,3 +131,19 @@ def main(verbose = True):
             """, (node.score,))
 
         conn.commit()
+        
+def is_full():
+    n = 6046
+    
+    with sqlite3.connect("datas/evals.db") as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT COUNT(*) FROM games
+        """)
+        res = c.fetchone()[0]
+    
+    return res == n
+
+def main(verbose = True):
+    if not is_full():
+        create_games_database()

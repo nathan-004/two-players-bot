@@ -49,6 +49,17 @@ class Node:
 class Root(Node):
     pass
 
+def get_id(board, cursor):
+    board_hash = hash(board)
+    
+    cursor.execute("""
+        SELECT id FROM games
+        WHERE hash = boardHash
+        VALUES (?)
+    """, (board_hash,))
+    
+    return cursor.fetchone()[0]
+
 def create_games_database():
     idx = 0
     last = time.time()
@@ -77,7 +88,7 @@ def create_games_database():
             if verbose:
                 print(f"\rPosition : {idx}, Parties : {len(games)}", end="")
         idx += 1
-            
+        
     with sqlite3.connect("datas/evals.db") as conn:
         cursor = conn.cursor()
 
@@ -102,6 +113,13 @@ def create_games_database():
             CREATE TABLE IF NOT EXISTS scores (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 score FLOAT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS relations (
+                childId INTEGER,
+                parentId INTEGER
             )
         """)
 
@@ -129,6 +147,15 @@ def create_games_database():
                 )
                 VALUES (?)
             """, (node.score,))
+            
+            for child in node.children:
+                cursor.execute("""
+                    INSERT INTO relations (
+                        childId,
+                        parentId
+                    )
+                    VALUES (?, ?)
+                """, (node.score,))
 
         conn.commit()
         
@@ -141,6 +168,7 @@ def is_full():
             SELECT COUNT(*) FROM games
         """)
         res = c.fetchone()[0]
+        print(get_id(Board(), c))
     
     return res == n
 

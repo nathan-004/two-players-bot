@@ -49,7 +49,18 @@ class Node:
 class Root(Node):
     pass
 
-def main(verbose = True):
+def get_id(board, cursor):
+    board_hash = hash(board)
+    
+    cursor.execute("""
+        SELECT id FROM games
+        WHERE hash = boardHash
+        VALUES (?)
+    """, (board_hash,))
+    
+    return cursor.fetchone()[0]
+
+def create_games_database():
     idx = 0
     last = time.time()
     games = {}
@@ -77,7 +88,7 @@ def main(verbose = True):
             if verbose:
                 print(f"\rPosition : {idx}, Parties : {len(games)}", end="")
         idx += 1
-            
+        
     with sqlite3.connect("datas/evals.db") as conn:
         cursor = conn.cursor()
 
@@ -95,6 +106,20 @@ def main(verbose = True):
                 bottomRightSquare STRING,
                 hash STRING UNIQUE,
                 player STRING
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                score FLOAT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS relations (
+                childId INTEGER,
+                parentId INTEGER
             )
         """)
 
@@ -115,5 +140,38 @@ def main(verbose = True):
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (*get_database_format_board(board), node.__hash__(), {X: "x", O: "o"}[board.get_current_player()]))
+            
+            cursor.execute("""
+                INSERT INTO scores (
+                    score
+                )
+                VALUES (?)
+            """, (node.score,))
+            
+            for child in node.children:
+                cursor.execute("""
+                    INSERT INTO relations (
+                        childId,
+                        parentId
+                    )
+                    VALUES (?, ?)
+                """, (node.score,))
 
         conn.commit()
+        
+def is_full():
+    n = 6046
+    
+    with sqlite3.connect("datas/evals.db") as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT COUNT(*) FROM games
+        """)
+        res = c.fetchone()[0]
+        print(get_id(Board(), c))
+    
+    return res == n
+
+def main(verbose = True):
+    if not is_full():
+        create_games_database()

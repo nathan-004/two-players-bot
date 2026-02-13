@@ -54,13 +54,13 @@ def get_id(board, cursor):
     
     cursor.execute("""
         SELECT id FROM games
-        WHERE hash = boardHash
-        VALUES (?)
+        WHERE hash = ?
     """, (board_hash,))
     
-    return cursor.fetchone()[0]
+    result = cursor.fetchone()
+    return result[0] if result else None
 
-def create_games_database():
+def create_games_database(verbose = True):
     idx = 0
     last = time.time()
     games = {}
@@ -147,31 +147,37 @@ def create_games_database():
                 )
                 VALUES (?)
             """, (node.score,))
-            
-            for child in node.children:
-                cursor.execute("""
-                    INSERT INTO relations (
-                        childId,
-                        parentId
-                    )
-                    VALUES (?, ?)
-                """, (node.score,))
 
-        conn.commit()
+    for board, node in games.items():
+        current_id = get_id(node, cursor)
+            
+        for child in node.children:
+            cursor.execute("""
+                INSERT INTO relations (
+                    childId,
+                    parentId
+                )
+                VALUES (?, ?)
+            """, (get_id(child, cursor), current_id))
+
+    conn.commit()
         
 def is_full():
     n = 6046
     
-    with sqlite3.connect("datas/evals.db") as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT COUNT(*) FROM games
-        """)
-        res = c.fetchone()[0]
-        print(get_id(Board(), c))
+    try:
+        with sqlite3.connect("datas/evals.db") as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT COUNT(*) FROM games
+            """)
+            res = c.fetchone()[0]
+            print(get_id(Board(), c))
+    except:
+        return False
     
     return res == n
 
 def main(verbose = True):
     if not is_full():
-        create_games_database()
+        create_games_database(verbose)

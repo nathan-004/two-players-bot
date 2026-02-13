@@ -1,4 +1,3 @@
 - [ ] Modifier hash pour prendre en compte miroir + symétrie
-- [ ] Stocker parties + score pour création de graphe
-- [ ] Upload de graphes via base de données
+- [X] Stocker parties + score
 - [ ] Value propagation algorithm sur graphe

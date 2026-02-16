@@ -172,12 +172,94 @@ def is_full():
                 SELECT COUNT(*) FROM games
             """)
             res = c.fetchone()[0]
-            print(get_id(Board(), c))
     except:
         return False
     
     return res == n
 
+def get_end_games(conn:sqlite3.Connection) -> list:
+    """
+    Renvoie la liste des identifiants des positions gagnantes ou perdantes 
+    """
+    c = conn.cursor()
+    c.execute("""
+        SELECT games.id FROM games
+        JOIN scores ON games.id = scores.id
+        WHERE scores.score = 1 OR scores.score = 1
+    """)
+    
+    return [el[0] for el in c.fetchall()]
+    
+def get_data_score(id:int, conn:sqlite3.Connection) -> float:
+    """
+    Renvoie le score de la partie correspondante
+    """
+    c = conn.cursor()
+    c.execute("""
+        SELECT score FROM scores
+        WHERE id = ?
+    """, (id,))
+        
+    return c.fetchone()[0]
+
+def get_parents_id(id:int, conn:sqlite3.Connection) -> list:
+    """
+    Renvoie la liste des parents (précédant un coups) de la partie
+    """
+    c = conn.cursor()
+    c.execute("""
+        SELECT parentId FROM relations
+        WHERE childId = ?
+    """, (id,))
+        
+    return [el[0] for el in c.fetchall()]
+
+def update_score(id:int, score:float, conn:sqlite3.Connection):
+    c = conn.cursor()
+    c.execute("""
+        UPDATE scores
+        SET score = ?
+        WHERE id = ?
+    """, (score, id))
+
+    conn.commit()
+
+def value_assignation(f:float = 0.85):
+    """
+    Propage les scores des positions de fin vers les positions enfants
+    Permet le calcul de la probabilité de victoire ou de défaite d'une partie
+    """
+    conn = sqlite3.connect("datas/evals.db")
+    last_layer = get_end_games(conn)
+    idx = 0
+
+    while last_layer != []:
+        idx += 1
+        print(f"Layer {idx} \r")
+        scores = {}
+        temp_current_layer = []
+        for current_id in last_layer:
+            current_score = get_data_score(current_id, conn)
+
+            parents_ids = get_parents_id(current_id, conn)
+            for parent_id in parents_ids:
+                if parent_id in scores:
+                    n = scores[parent_id][1]
+                    moy = (scores[parent_id][0] * n + current_score) / (n + 1)
+                    scores[parent_id] = (moy, n+1)
+                else:
+                    scores[parent_id] = ((get_data_score(parent_id, conn) + current_score) / 2, 2)
+            
+            temp_current_layer += parents_ids
+        
+        for id, (score, _) in scores.items():
+            update_score(id, score * f, conn)
+        
+        last_layer = list(set(temp_current_layer.copy()))
+    
+    conn.close()
+
 def main(verbose = True):
     if not is_full():
         create_games_database(verbose)
+    value_assignation()

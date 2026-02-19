@@ -106,7 +106,7 @@ class Board(list):
         return False
     
     def get_key(self):
-        return "".join(["".join([str(val) for val in row]) for row in self])
+        return "".join(["".join([VALS[val] for val in row]) for row in self])
 
     # -------------------------------------------------------
     # Special Functions                                     |

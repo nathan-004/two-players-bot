@@ -37,6 +37,9 @@ class Node:
         self.score = get_score(board)
         self.children = []
         self.parents = []
+
+    def get_key(self):
+        return self.board.get_key()
     
     def __hash__(self):
         return self.board.__hash__()
@@ -50,12 +53,12 @@ class Root(Node):
     pass
 
 def get_id(board, cursor):
-    board_hash = hash(board)
+    board_key = board.get_key()
     
     cursor.execute("""
         SELECT id FROM games
-        WHERE hash = ?
-    """, (board_hash,))
+        WHERE key = ?
+    """, (board_key,))
     
     result = cursor.fetchone()
     return result[0] if result else None
@@ -104,7 +107,7 @@ def create_games_database(verbose = True):
                 bottomLeftSquare STRING,
                 bottomMiddleSquare STRING,
                 bottomRightSquare STRING,
-                hash STRING UNIQUE,
+                key STRING UNIQUE,
                 player STRING
             )
         """)
@@ -135,11 +138,11 @@ def create_games_database(verbose = True):
                     bottomLeftSquare,
                     bottomMiddleSquare,
                     bottomRightSquare,
-                    hash,
+                    key,
                     player
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (*get_database_format_board(board), node.__hash__(), {X: "x", O: "o"}[board.get_current_player()]))
+            """, (*get_database_format_board(board), node.get_key(), {X: "x", O: "o"}[board.get_current_player()]))
             
             cursor.execute("""
                 INSERT INTO scores (
@@ -259,7 +262,20 @@ def value_assignation(f:float = 0.85):
     
     conn.close()
 
+def test_evaluation():
+    conn = sqlite3.connect("datas/evals.db")
+    cursor = conn.cursor()
+    g = Game()
+
+    for last_move, last_player, moves, winner in g.play():
+        print(last_move, last_player, moves, winner)
+        id = get_id(g.board, cursor)
+        evaluation = get_data_score(id, conn)
+        print(evaluation)
+    conn.close()
+
 def main(verbose = True):
     if not is_full():
         create_games_database(verbose)
-    value_assignation()
+        value_assignation()
+    test_evaluation()

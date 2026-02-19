@@ -104,6 +104,9 @@ class Board(list):
             return True
         
         return False
+    
+    def get_key(self):
+        return "".join(["".join([str(val) for val in row]) for row in self])
 
     # -------------------------------------------------------
     # Special Functions                                     |
@@ -141,7 +144,59 @@ class Board(list):
         if not isinstance(other, Board):
             return False
         return all(all(self[y][x] == other[y][x] for x in range(3)) for y in range(3))
+    
+class Game:
+    def __init__(self, board:Board = None):
+        if board is None:
+            self.board = Board()
+        else:
+            self.board = deepcopy(board)
+
+    @property
+    def player(self):
+        return board.get_current_player()
+    
+    def get_move_player(self) -> Position:
+        """Renvoie le coups choisi par le joueur"""
+        move = ""
+        while (len(move) != 2 
+                or not move[0].isdigit() or not move[1].isdigit()
+                or not(0 <= int(move[0]) <= 2) or not(0 <= int(move[1]) <= 2)
+                or not Position(int(move[0]), int(move[1])) in self.board.get_legal_move()
+              ):
+            move = input("Coups (ex : `xy`) : ")
+        return Position(int(move[0]), int(move[1]))
+    
+    def play(self, generator = True, return_format = ("last_move", "last_player", "moves", "winner")):
+        """Joue une partie"""
+        moves = []
+        end = False
+
+        while not end:
+            move = self.get_move_player()
+            moves.append(move)
+            cur_player = self.board.get_current_player()
+            self.board[move] = cur_player
+            print(self.board)
+
+            end = self.board.is_ended()
+            datas = {
+                "last_move": move,
+                "last_player": cur_player,
+                "moves": moves.copy(),
+                "winner": self.board.winner
+            }
+
+            if generator:
+                yield tuple([
+                    datas[key] for key in return_format
+                ])
         
+        if not generator:
+            return tuple([
+                    datas[key] for key in return_format
+                ])
+
 def rotate90(board:Board):
     return [list(row) for row in zip(*board)][::-1]
 
@@ -166,8 +221,6 @@ def data_augmentation(board: Board, move: Position):
         cur_move = rotate_move_90(cur_move)
 
 b = Board()
-
-assert not b.is_ended()
 
 if __name__ == "__main__":
     b[Position(0, 0)] = X

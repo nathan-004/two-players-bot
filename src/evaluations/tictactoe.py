@@ -225,9 +225,7 @@ def update_score(id:int, score:float, conn:sqlite3.Connection):
         WHERE id = ?
     """, (score, id))
 
-    conn.commit()
-
-def value_assignation(f:float = 0.85):
+def value_assignation(f:float = 0.5):
     """
     Propage les scores des positions de fin vers les positions enfants
     Permet le calcul de la probabilité de victoire ou de défaite d'une partie
@@ -243,13 +241,15 @@ def value_assignation(f:float = 0.85):
         temp_current_layer = []
         for current_id in last_layer:
             current_score = get_data_score(current_id, conn)
+            
+            coeff = 1 if abs(current_score) <= 0.80 else 10
 
             parents_ids = get_parents_id(current_id, conn)
             for parent_id in parents_ids:
                 if parent_id in scores:
                     n = scores[parent_id][1]
-                    moy = (scores[parent_id][0] * n + current_score) / (n + 1)
-                    scores[parent_id] = (moy, n+1)
+                    moy = (scores[parent_id][0] * n + current_score) / (n + coeff)
+                    scores[parent_id] = (moy, n+coeff)
                 else:
                     scores[parent_id] = ((get_data_score(parent_id, conn) + current_score) / 2, 2)
             
@@ -259,7 +259,7 @@ def value_assignation(f:float = 0.85):
             update_score(id, score * f, conn)
         
         last_layer = list(set(temp_current_layer.copy()))
-    
+    conn.commit()
     conn.close()
 
 def test_evaluation():

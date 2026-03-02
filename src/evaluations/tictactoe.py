@@ -224,8 +224,17 @@ def update_score(id:int, score:float, conn:sqlite3.Connection):
         SET score = ?
         WHERE id = ?
     """, (score, id))
+    
+def get_player(id:int, conn:sqlite3.Connection) -> int:
+    c = conn.cursor()
+    c.execute("""
+        SELECT player FROM games
+        WHERE id = ?
+    """, (id,))
+    
+    return {"x":X, "o":O}[c.fetchone()[0]]
 
-def value_assignation(f:float = 0.5):
+def value_assignation(f:float = 0.75):
     """
     Propage les scores des positions de fin vers les positions enfants
     Permet le calcul de la probabilité de victoire ou de défaite d'une partie
@@ -241,21 +250,24 @@ def value_assignation(f:float = 0.5):
         temp_current_layer = []
         for current_id in last_layer:
             current_score = get_data_score(current_id, conn)
-            
-            coeff = 1 if abs(current_score) <= 0.80 else 10
 
             parents_ids = get_parents_id(current_id, conn)
             for parent_id in parents_ids:
                 if parent_id in scores:
-                    n = scores[parent_id][1]
-                    moy = (scores[parent_id][0] * n + current_score) / (n + coeff)
-                    scores[parent_id] = (moy, n+coeff)
+                    n = scores[parent_id]
+                    
+                    if get_player(parent_id, conn) == X:
+                        n = max(n, current_score)
+                    else:
+                        n = min(n, current_score)
+                    
+                    scores[parent_id] = n
                 else:
-                    scores[parent_id] = ((get_data_score(parent_id, conn) + current_score) / 2, 2)
+                    scores[parent_id] = get_data_score(parent_id, conn)
             
             temp_current_layer += parents_ids
         
-        for id, (score, _) in scores.items():
+        for id, score in scores.items():
             update_score(id, score * f, conn)
         
         last_layer = list(set(temp_current_layer.copy()))
@@ -277,5 +289,5 @@ def test_evaluation():
 def main(verbose = True):
     if not is_full():
         create_games_database(verbose)
-        value_assignation()
+    value_assignation()
     test_evaluation()

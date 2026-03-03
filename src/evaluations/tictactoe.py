@@ -108,7 +108,8 @@ def create_games_database(verbose = True):
                 bottomMiddleSquare STRING,
                 bottomRightSquare STRING,
                 key STRING UNIQUE,
-                player STRING
+                player STRING,
+                end INTEGER
             )
         """)
         
@@ -139,10 +140,11 @@ def create_games_database(verbose = True):
                     bottomMiddleSquare,
                     bottomRightSquare,
                     key,
-                    player
+                    player,
+                    end
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (*get_database_format_board(board), node.get_key(), {X: "x", O: "o"}[board.get_current_player()]))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (*get_database_format_board(board), node.get_key(), {X: "x", O: "o"}[board.get_current_player()], int(board.is_ended())))
             
             cursor.execute("""
                 INSERT INTO scores (
@@ -187,8 +189,7 @@ def get_end_games(conn:sqlite3.Connection) -> list:
     c = conn.cursor()
     c.execute("""
         SELECT games.id FROM games
-        JOIN scores ON games.id = scores.id
-        WHERE scores.score = 1 OR scores.score = 1
+        WHERE end = 1
     """)
     
     return [el[0] for el in c.fetchall()]
@@ -244,19 +245,21 @@ def value_assignation(f:float = 0.75):
     idx = 0
 
     while last_layer != []:
+        print(last_layer)
         idx += 1
         print(f"Layer {idx} \r")
         scores = {}
         temp_current_layer = []
         for current_id in last_layer:
             current_score = get_data_score(current_id, conn)
-
+            current_player = get_player(current_id, conn)
+            
             parents_ids = get_parents_id(current_id, conn)
             for parent_id in parents_ids:
                 if parent_id in scores:
                     n = scores[parent_id]
                     
-                    if get_player(parent_id, conn) == X:
+                    if current_player == X:
                         n = max(n, current_score)
                     else:
                         n = min(n, current_score)

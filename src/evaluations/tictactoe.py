@@ -253,6 +253,7 @@ def value_assignation(f:float = 1):
         for current_id in last_layer:
             current_player = get_player(current_id, conn)
             parents_ids = get_parents_id(current_id, conn)
+            current_score = get_data_score(current_id, conn)
             
             for parent_id in parents_ids:
                 if parent_id in scores:
@@ -265,7 +266,7 @@ def value_assignation(f:float = 1):
                     
                     scores[parent_id] = n
                 else:
-                    scores[parent_id] = get_data_score(parent_id, conn)
+                    scores[parent_id] = current_score
             
             temp_current_layer += parents_ids
         print(scores)
@@ -291,5 +292,5 @@ def test_evaluation():
 def main(verbose = True):
     if not is_full():
         create_games_database(verbose)
-    value_assignation()
+        value_assignation()
     test_evaluation()

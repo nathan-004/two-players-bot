@@ -235,7 +235,7 @@ def get_player(id:int, conn:sqlite3.Connection) -> int:
     
     return {"x":X, "o":O}[c.fetchone()[0]]
 
-def value_assignation(f:float = 1):
+def value_assignation(f:float = 0.75):
     """
     Propage les scores des positions de fin vers les positions enfants
     Permet le calcul de la probabilité de victoire ou de défaite d'une partie
@@ -260,9 +260,9 @@ def value_assignation(f:float = 1):
                     n = scores[parent_id]
                     
                     if current_player == X:
-                        n = max(n, scores[parent_id])
-                    else:
                         n = min(n, scores[parent_id])
+                    else:
+                        n = max(n, scores[parent_id])
                     
                     scores[parent_id] = n
                 else:

@@ -235,7 +235,7 @@ def get_player(id:int, conn:sqlite3.Connection) -> int:
     
     return {"x":X, "o":O}[c.fetchone()[0]]
 
-def value_assignation(f:float = 0.75):
+def value_assignation():
     """
     Propage les scores des positions de fin vers les positions enfants
     Permet le calcul de la probabilité de victoire ou de défaite d'une partie
@@ -251,29 +251,26 @@ def value_assignation(f:float = 0.75):
         scores = {}
         temp_current_layer = []
         for current_id in last_layer:
-            current_player = get_player(current_id, conn)
             parents_ids = get_parents_id(current_id, conn)
             current_score = get_data_score(current_id, conn)
-            
             for parent_id in parents_ids:
+                parent_player = get_player(parent_id, conn)
+
                 if parent_id in scores:
-                    n = scores[parent_id]
-                    
-                    if current_player == X:
-                        n = min(n, scores[parent_id])
+                    if parent_player == X:
+                        scores[parent_id] = max(scores[parent_id], current_score)
                     else:
-                        n = max(n, scores[parent_id])
-                    
-                    scores[parent_id] = n
+                        scores[parent_id] = min(scores[parent_id], current_score)
                 else:
                     scores[parent_id] = current_score
-            
+
             temp_current_layer += parents_ids
-        print(scores)
+
         for id, score in scores.items():
-            update_score(id, score * f, conn)
-        
-        last_layer = list(set(temp_current_layer.copy()))
+            update_score(id, score, conn)
+
+        last_layer = list(set(temp_current_layer))
+
     conn.commit()
     conn.close()
 
